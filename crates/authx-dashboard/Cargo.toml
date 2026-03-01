@@ -3,7 +3,13 @@ name    = "authx-dashboard"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace   = true
+documentation        = "https://docs.rs/authx-dashboard"
+readme               = "../../README.md"
 description = "Embedded admin dashboard for authx-rs"
+keywords             = ["authentication", "dashboard", "admin", "ui"]
+categories           = ["authentication", "web-programming"]
 
 [dependencies]
 authx-core    = { workspace = true }
