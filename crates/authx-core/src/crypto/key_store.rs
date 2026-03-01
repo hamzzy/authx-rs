@@ -212,7 +212,6 @@ mod tests {
     const PRIV2_PEM: &[u8] = b"-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIBBZj4V3sFR3zIieCbxHnrLoAoEJQHBkJPIJlqMvpO5U\n-----END PRIVATE KEY-----\n";
     const PUB2_PEM: &[u8] = b"-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA2YkJaLvQK1gTnYqQB8djQZfPOvXrJTpGE9nO9A4Xbg0=\n-----END PUBLIC KEY-----\n";
 
-
     #[test]
     fn empty_store_sign_fails() {
         let store = KeyRotationStore::new(2);
