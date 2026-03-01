@@ -3,10 +3,14 @@ members = ["crates/*", "examples/*"]
 resolver = "2"
 
 [workspace.package]
-version     = "0.1.0"
-edition     = "2021"
-license     = "MIT"
-repository  = "https://github.com/authx/authx-rs"
+version       = "0.1.0"
+edition       = "2021"
+license       = "MIT"
+repository    = "https://github.com/authx/authx-rs"
+homepage      = "https://github.com/authx/authx-rs"
+documentation = "https://docs.rs/authx-core"
+readme        = "README.md"
+authors       = ["authx contributors"]
 
 [workspace.dependencies]
 # Async
@@ -59,11 +63,11 @@ reqwest      = { version = "0.12", features = ["json"] }
 base64       = "0.22"
 urlencoding  = "2"
 
-# Internal crates
-authx-core    = { path = "crates/authx-core" }
-authx-storage = { path = "crates/authx-storage" }
-authx-plugins = { path = "crates/authx-plugins" }
-authx-axum    = { path = "crates/authx-axum" }
+# Internal crates — path + version so `cargo publish` resolves from crates.io
+authx-core    = { path = "crates/authx-core",    version = "0.1" }
+authx-storage = { path = "crates/authx-storage", version = "0.1" }
+authx-plugins = { path = "crates/authx-plugins", version = "0.1" }
+authx-axum    = { path = "crates/authx-axum",    version = "0.1" }
 
 [profile.release]
 lto           = true

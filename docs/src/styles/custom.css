@@ -1,0 +1,26 @@
+/* authx-rs docs — custom Starlight overrides */
+
+:root {
+  --sl-color-accent-low:  #1e1b4b;
+  --sl-color-accent:      #6366f1;
+  --sl-color-accent-high: #a5b4fc;
+  --sl-font-system:       'Inter', system-ui, sans-serif;
+}
+
+/* Tighter code blocks */
+.sl-markdown-content pre {
+  border-radius: 8px;
+  font-size: .875rem;
+}
+
+/* Table improvements */
+.sl-markdown-content table {
+  font-size: .875rem;
+}
+
+/* Make the hero tagline pop a bit more */
+.hero .tagline {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  max-width: 600px;
+}

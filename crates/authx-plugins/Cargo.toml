@@ -1,8 +1,15 @@
 [package]
-name    = "authx-plugins"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+name             = "authx-plugins"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+documentation        = "https://docs.rs/authx-plugins"
+readme               = "../../README.md"
+description          = "Auth plugin collection for authx-rs: email/password, TOTP, magic link, OAuth, API keys, organizations, and more"
+keywords             = ["authentication", "totp", "oauth", "magic-link", "mfa"]
+categories           = ["authentication", "web-programming"]
 
 [dependencies]
 authx-core.workspace    = true

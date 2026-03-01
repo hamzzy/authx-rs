@@ -1,8 +1,15 @@
 [package]
-name    = "authx-axum"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+name             = "authx-axum"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+documentation        = "https://docs.rs/authx-axum"
+readme               = "../../README.md"
+description          = "Axum integration for authx-rs: Tower middleware, session management, CSRF, rate limiting, and route handlers"
+keywords             = ["authentication", "axum", "tower", "session", "middleware"]
+categories           = ["authentication", "web-programming", "web-programming::http-server"]
 
 [dependencies]
 authx-core.workspace    = true

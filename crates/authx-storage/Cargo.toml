@@ -1,8 +1,15 @@
 [package]
-name    = "authx-storage"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+name             = "authx-storage"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+documentation        = "https://docs.rs/authx-storage"
+readme               = "../../README.md"
+description          = "Storage abstraction layer for authx-rs: repository traits, in-memory store, and PostgreSQL adapter"
+keywords             = ["authentication", "storage", "repository", "postgres", "sqlx"]
+categories           = ["authentication", "database", "web-programming"]
 
 [dependencies]
 authx-core.workspace   = true
