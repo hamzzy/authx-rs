@@ -18,8 +18,8 @@ use crate::one_time_token::{OneTimeTokenStore, TokenKind};
 /// 1. Call `issue(user_id)` → send the returned token in an email link.
 /// 2. User clicks link → call `verify(token)` → sets `email_verified = true`.
 pub struct EmailVerificationService<S> {
-    storage:     S,
-    events:      EventBus,
+    storage: S,
+    events: EventBus,
     token_store: OneTimeTokenStore,
 }
 
@@ -42,7 +42,9 @@ where
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
-        let token = self.token_store.issue(user_id, TokenKind::EmailVerification);
+        let token = self
+            .token_store
+            .issue(user_id, TokenKind::EmailVerification);
         tracing::info!(user_id = %user_id, "email verification token issued");
         Ok(token)
     }
@@ -58,7 +60,10 @@ where
         UserRepository::update(
             &self.storage,
             user_id,
-            UpdateUser { email_verified: Some(true), ..Default::default() },
+            UpdateUser {
+                email_verified: Some(true),
+                ..Default::default()
+            },
         )
         .await?;
 

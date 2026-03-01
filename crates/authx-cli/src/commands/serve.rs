@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use axum::{Router, routing::get, response::Json};
+use axum::{response::Json, routing::get, Router};
 use clap::Args;
 use tower_http::trace::TraceLayer;
 
@@ -22,7 +22,11 @@ pub struct ServeArgs {
     database_url: Option<String>,
 
     /// Comma-separated list of trusted origins for CSRF protection.
-    #[arg(long, env = "AUTHX_TRUSTED_ORIGINS", default_value = "http://localhost:3000")]
+    #[arg(
+        long,
+        env = "AUTHX_TRUSTED_ORIGINS",
+        default_value = "http://localhost:3000"
+    )]
     trusted_origins: String,
 
     /// Session TTL in seconds.
@@ -65,8 +69,13 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         tracing::info!("migrations applied");
 
         let app = make_app(
-            store.clone(), store,
-            &origins, args.session_ttl, args.secure_cookies, lockout, args.rate_limit,
+            store.clone(),
+            store,
+            &origins,
+            args.session_ttl,
+            args.secure_cookies,
+            lockout,
+            args.rate_limit,
         );
         return listen(app, &args.bind).await;
     }
@@ -74,29 +83,34 @@ pub async fn run(args: ServeArgs) -> Result<()> {
     tracing::warn!("no DATABASE_URL — using in-memory store (data is not persisted)");
     let store = MemoryStore::new();
     let app = make_app(
-        store.clone(), store,
-        &origins, args.session_ttl, args.secure_cookies, lockout, args.rate_limit,
+        store.clone(),
+        store,
+        &origins,
+        args.session_ttl,
+        args.secure_cookies,
+        lockout,
+        args.rate_limit,
     );
     listen(app, &args.bind).await
 }
 
 fn make_app<S>(
     session_store: S,
-    auth_store:    S,
-    origins:       &[String],
-    session_ttl:   u64,
-    secure:        bool,
-    lockout:       LockoutConfig,
-    rate_limit:    u32,
+    auth_store: S,
+    origins: &[String],
+    session_ttl: u64,
+    secure: bool,
+    lockout: LockoutConfig,
+    rate_limit: u32,
 ) -> Router
 where
     S: authx_storage::StorageAdapter + Clone + Send + Sync + 'static,
 {
     use axum::middleware;
 
-    let csrf     = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
+    let csrf = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
     let rl_layer = RateLimitLayer::new(RateLimitConfig::new(rate_limit, Duration::from_secs(60)));
-    let state    = AuthxState::new_with_lockout(auth_store, session_ttl as i64, secure, lockout);
+    let state = AuthxState::new_with_lockout(auth_store, session_ttl as i64, secure, lockout);
 
     let auth_router = state
         .router()

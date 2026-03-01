@@ -24,16 +24,16 @@ use crate::ports::{
 
 #[derive(Clone, Default)]
 pub struct MemoryStore {
-    users:          Arc<RwLock<HashMap<Uuid, User>>>,
-    sessions:       Arc<RwLock<HashMap<Uuid, Session>>>,
-    credentials:    Arc<RwLock<Vec<Credential>>>,
-    audit_logs:     Arc<RwLock<Vec<AuditLog>>>,
-    orgs:           Arc<RwLock<HashMap<Uuid, Organization>>>,
-    roles:          Arc<RwLock<HashMap<Uuid, Role>>>,
-    memberships:    Arc<RwLock<Vec<Membership>>>,
-    api_keys:       Arc<RwLock<Vec<ApiKey>>>,
+    users: Arc<RwLock<HashMap<Uuid, User>>>,
+    sessions: Arc<RwLock<HashMap<Uuid, Session>>>,
+    credentials: Arc<RwLock<Vec<Credential>>>,
+    audit_logs: Arc<RwLock<Vec<AuditLog>>>,
+    orgs: Arc<RwLock<HashMap<Uuid, Organization>>>,
+    roles: Arc<RwLock<HashMap<Uuid, Role>>>,
+    memberships: Arc<RwLock<Vec<Membership>>>,
+    api_keys: Arc<RwLock<Vec<ApiKey>>>,
     oauth_accounts: Arc<RwLock<Vec<OAuthAccount>>>,
-    invites:        Arc<RwLock<Vec<Invite>>>,
+    invites: Arc<RwLock<Vec<Invite>>>,
 }
 
 impl MemoryStore {
@@ -87,20 +87,24 @@ impl UserRepository for MemoryStore {
             return Err(AuthError::EmailTaken);
         }
         if let Some(ref uname) = data.username {
-            if users.values().any(|u| u.username.as_deref() == Some(uname.as_str())) {
-                return Err(AuthError::Storage(StorageError::Conflict(
-                    format!("username '{}' already taken", uname),
-                )));
+            if users
+                .values()
+                .any(|u| u.username.as_deref() == Some(uname.as_str()))
+            {
+                return Err(AuthError::Storage(StorageError::Conflict(format!(
+                    "username '{}' already taken",
+                    uname
+                ))));
             }
         }
         let user = User {
-            id:             Uuid::new_v4(),
-            email:          data.email,
+            id: Uuid::new_v4(),
+            email: data.email,
             email_verified: false,
-            username:       data.username,
-            created_at:     Utc::now(),
-            updated_at:     Utc::now(),
-            metadata:       data.metadata.unwrap_or(serde_json::Value::Null),
+            username: data.username,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            metadata: data.metadata.unwrap_or(serde_json::Value::Null),
         };
         users.insert(user.id, user.clone());
         Ok(user)
@@ -109,16 +113,28 @@ impl UserRepository for MemoryStore {
     async fn update(&self, id: Uuid, data: UpdateUser) -> Result<User> {
         let mut users = self.users.write().unwrap();
         let user = users.get_mut(&id).ok_or(AuthError::UserNotFound)?;
-        if let Some(email)    = data.email          { user.email = email; }
-        if let Some(verified) = data.email_verified { user.email_verified = verified; }
-        if let Some(uname)    = data.username       { user.username = Some(uname); }
-        if let Some(meta)     = data.metadata       { user.metadata = meta; }
+        if let Some(email) = data.email {
+            user.email = email;
+        }
+        if let Some(verified) = data.email_verified {
+            user.email_verified = verified;
+        }
+        if let Some(uname) = data.username {
+            user.username = Some(uname);
+        }
+        if let Some(meta) = data.metadata {
+            user.metadata = meta;
+        }
         user.updated_at = Utc::now();
         Ok(user.clone())
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
-        self.users.write().unwrap().remove(&id).ok_or(AuthError::UserNotFound)?;
+        self.users
+            .write()
+            .unwrap()
+            .remove(&id)
+            .ok_or(AuthError::UserNotFound)?;
         Ok(())
     }
 }
@@ -129,16 +145,19 @@ impl UserRepository for MemoryStore {
 impl SessionRepository for MemoryStore {
     async fn create(&self, data: CreateSession) -> Result<Session> {
         let session = Session {
-            id:          Uuid::new_v4(),
-            user_id:     data.user_id,
-            token_hash:  data.token_hash,
+            id: Uuid::new_v4(),
+            user_id: data.user_id,
+            token_hash: data.token_hash,
             device_info: data.device_info,
-            ip_address:  data.ip_address,
-            org_id:      data.org_id,
-            expires_at:  data.expires_at,
-            created_at:  Utc::now(),
+            ip_address: data.ip_address,
+            org_id: data.org_id,
+            expires_at: data.expires_at,
+            created_at: Utc::now(),
         };
-        self.sessions.write().unwrap().insert(session.id, session.clone());
+        self.sessions
+            .write()
+            .unwrap()
+            .insert(session.id, session.clone());
         Ok(session)
     }
 
@@ -173,7 +192,10 @@ impl SessionRepository for MemoryStore {
     }
 
     async fn invalidate_all_for_user(&self, user_id: Uuid) -> Result<()> {
-        self.sessions.write().unwrap().retain(|_, s| s.user_id != user_id);
+        self.sessions
+            .write()
+            .unwrap()
+            .retain(|_, s| s.user_id != user_id);
         Ok(())
     }
 
@@ -193,11 +215,11 @@ impl SessionRepository for MemoryStore {
 impl CredentialRepository for MemoryStore {
     async fn create(&self, data: CreateCredential) -> Result<Credential> {
         let cred = Credential {
-            id:              Uuid::new_v4(),
-            user_id:         data.user_id,
-            kind:            data.kind,
+            id: Uuid::new_v4(),
+            user_id: data.user_id,
+            kind: data.kind,
             credential_hash: data.credential_hash,
-            metadata:        data.metadata.unwrap_or(serde_json::Value::Null),
+            metadata: data.metadata.unwrap_or(serde_json::Value::Null),
         };
         self.credentials.write().unwrap().push(cred.clone());
         Ok(cred)
@@ -245,15 +267,16 @@ impl OrgRepository for MemoryStore {
     async fn create(&self, data: CreateOrg) -> Result<Organization> {
         let mut orgs = self.orgs.write().unwrap();
         if orgs.values().any(|o| o.slug == data.slug) {
-            return Err(AuthError::Storage(StorageError::Conflict(
-                format!("slug '{}' already taken", data.slug),
-            )));
+            return Err(AuthError::Storage(StorageError::Conflict(format!(
+                "slug '{}' already taken",
+                data.slug
+            ))));
         }
         let org = Organization {
-            id:         Uuid::new_v4(),
-            name:       data.name,
-            slug:       data.slug,
-            metadata:   data.metadata.unwrap_or(serde_json::Value::Null),
+            id: Uuid::new_v4(),
+            name: data.name,
+            slug: data.slug,
+            metadata: data.metadata.unwrap_or(serde_json::Value::Null),
             created_at: Utc::now(),
         };
         orgs.insert(org.id, org.clone());
@@ -325,9 +348,14 @@ impl OrgRepository for MemoryStore {
             .collect())
     }
 
-    async fn create_role(&self, org_id: Uuid, name: String, permissions: Vec<String>) -> Result<Role> {
+    async fn create_role(
+        &self,
+        org_id: Uuid,
+        name: String,
+        permissions: Vec<String>,
+    ) -> Result<Role> {
         let role = Role {
-            id:          Uuid::new_v4(),
+            id: Uuid::new_v4(),
             org_id,
             name,
             permissions,
@@ -336,7 +364,12 @@ impl OrgRepository for MemoryStore {
         Ok(role)
     }
 
-    async fn update_member_role(&self, org_id: Uuid, user_id: Uuid, role_id: Uuid) -> Result<Membership> {
+    async fn update_member_role(
+        &self,
+        org_id: Uuid,
+        user_id: Uuid,
+        role_id: Uuid,
+    ) -> Result<Membership> {
         let role = self
             .roles
             .read()
@@ -361,15 +394,15 @@ impl OrgRepository for MemoryStore {
 impl AuditLogRepository for MemoryStore {
     async fn append(&self, entry: CreateAuditLog) -> Result<AuditLog> {
         let log = AuditLog {
-            id:            Uuid::new_v4(),
-            user_id:       entry.user_id,
-            org_id:        entry.org_id,
-            action:        entry.action,
+            id: Uuid::new_v4(),
+            user_id: entry.user_id,
+            org_id: entry.org_id,
+            action: entry.action,
             resource_type: entry.resource_type,
-            resource_id:   entry.resource_id,
-            ip_address:    entry.ip_address,
-            metadata:      entry.metadata.unwrap_or(serde_json::Value::Null),
-            created_at:    Utc::now(),
+            resource_id: entry.resource_id,
+            ip_address: entry.ip_address,
+            metadata: entry.metadata.unwrap_or(serde_json::Value::Null),
+            created_at: Utc::now(),
         };
         self.audit_logs.write().unwrap().push(log.clone());
         Ok(log)
@@ -406,14 +439,14 @@ impl AuditLogRepository for MemoryStore {
 impl ApiKeyRepository for MemoryStore {
     async fn create(&self, data: CreateApiKey) -> Result<ApiKey> {
         let key = ApiKey {
-            id:           Uuid::new_v4(),
-            user_id:      data.user_id,
-            org_id:       data.org_id,
-            key_hash:     data.key_hash,
-            prefix:       data.prefix,
-            name:         data.name,
-            scopes:       data.scopes,
-            expires_at:   data.expires_at,
+            id: Uuid::new_v4(),
+            user_id: data.user_id,
+            org_id: data.org_id,
+            key_hash: data.key_hash,
+            prefix: data.prefix,
+            name: data.name,
+            scopes: data.scopes,
+            expires_at: data.expires_at,
             last_used_at: None,
         };
         self.api_keys.write().unwrap().push(key.clone());
@@ -470,25 +503,29 @@ impl OAuthAccountRepository for MemoryStore {
             .iter_mut()
             .find(|a| a.provider == data.provider && a.provider_user_id == data.provider_user_id)
         {
-            existing.access_token_enc  = data.access_token_enc;
+            existing.access_token_enc = data.access_token_enc;
             existing.refresh_token_enc = data.refresh_token_enc;
-            existing.expires_at        = data.expires_at;
+            existing.expires_at = data.expires_at;
             return Ok(existing.clone());
         }
         let account = OAuthAccount {
-            id:                Uuid::new_v4(),
-            user_id:           data.user_id,
-            provider:          data.provider,
-            provider_user_id:  data.provider_user_id,
-            access_token_enc:  data.access_token_enc,
+            id: Uuid::new_v4(),
+            user_id: data.user_id,
+            provider: data.provider,
+            provider_user_id: data.provider_user_id,
+            access_token_enc: data.access_token_enc,
             refresh_token_enc: data.refresh_token_enc,
-            expires_at:        data.expires_at,
+            expires_at: data.expires_at,
         };
         accounts.push(account.clone());
         Ok(account)
     }
 
-    async fn find_by_provider(&self, provider: &str, provider_user_id: &str) -> Result<Option<OAuthAccount>> {
+    async fn find_by_provider(
+        &self,
+        provider: &str,
+        provider_user_id: &str,
+    ) -> Result<Option<OAuthAccount>> {
         Ok(self
             .oauth_accounts
             .read()
@@ -526,12 +563,12 @@ impl OAuthAccountRepository for MemoryStore {
 impl InviteRepository for MemoryStore {
     async fn create(&self, data: CreateInvite) -> Result<Invite> {
         let invite = Invite {
-            id:          Uuid::new_v4(),
-            org_id:      data.org_id,
-            email:       data.email,
-            role_id:     data.role_id,
-            token_hash:  data.token_hash,
-            expires_at:  data.expires_at,
+            id: Uuid::new_v4(),
+            org_id: data.org_id,
+            email: data.email,
+            role_id: data.role_id,
+            token_hash: data.token_hash,
+            expires_at: data.expires_at,
             accepted_at: None,
         };
         self.invites.write().unwrap().push(invite.clone());

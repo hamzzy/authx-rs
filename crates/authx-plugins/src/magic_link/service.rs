@@ -16,10 +16,10 @@ use crate::one_time_token::{OneTimeTokenStore, TokenKind};
 /// Returned when a magic link is successfully verified.
 #[derive(Debug)]
 pub struct MagicLinkVerifyResponse {
-    pub user:    User,
+    pub user: User,
     pub session: Session,
     /// Raw session token — send to client once; store SHA-256 hash server-side.
-    pub token:   String,
+    pub token: String,
 }
 
 /// Magic link authentication service.
@@ -30,9 +30,9 @@ pub struct MagicLinkVerifyResponse {
 ///
 /// The magic link token is single-use and expires after `ttl` (default 15 min).
 pub struct MagicLinkService<S> {
-    storage:         S,
-    events:          EventBus,
-    token_store:     OneTimeTokenStore,
+    storage: S,
+    events: EventBus,
+    token_store: OneTimeTokenStore,
     session_ttl_secs: i64,
 }
 
@@ -44,7 +44,7 @@ where
         Self {
             storage,
             events,
-            token_store:     OneTimeTokenStore::new(Duration::from_secs(15 * 60)),
+            token_store: OneTimeTokenStore::new(Duration::from_secs(15 * 60)),
             session_ttl_secs,
         }
     }
@@ -61,7 +61,7 @@ where
     pub async fn request_link(&self, email: &str) -> Result<Option<String>> {
         let user = match UserRepository::find_by_email(&self.storage, email).await? {
             Some(u) => u,
-            None    => {
+            None => {
                 tracing::debug!("magic link requested for unknown email");
                 return Ok(None);
             }
@@ -86,26 +86,33 @@ where
 
         // Generate session token.
         let raw_session_token: [u8; 32] = rand::thread_rng().gen();
-        let raw_session_str   = hex::encode(raw_session_token);
-        let token_hash        = sha256_hex(raw_session_str.as_bytes());
+        let raw_session_str = hex::encode(raw_session_token);
+        let token_hash = sha256_hex(raw_session_str.as_bytes());
 
         let session = SessionRepository::create(
             &self.storage,
             CreateSession {
-                user_id:     user.id,
+                user_id: user.id,
                 token_hash,
                 device_info: serde_json::Value::Null,
-                ip_address:  ip.to_owned(),
-                org_id:      None,
-                expires_at:  Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                ip_address: ip.to_owned(),
+                org_id: None,
+                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::SignIn { user: user.clone(), session: session.clone() });
+        self.events.emit(AuthEvent::SignIn {
+            user: user.clone(),
+            session: session.clone(),
+        });
         tracing::info!(user_id = %user_id, session_id = %session.id, "magic link sign-in complete");
 
-        Ok(MagicLinkVerifyResponse { user, session, token: raw_session_str })
+        Ok(MagicLinkVerifyResponse {
+            user,
+            session,
+            token: raw_session_str,
+        })
     }
 }
 

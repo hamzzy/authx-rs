@@ -4,11 +4,15 @@ use authx_storage::{memory::MemoryStore, ports::UserRepository};
 use uuid::Uuid;
 
 async fn setup() -> (EmailVerificationService<MemoryStore>, Uuid) {
-    let store  = MemoryStore::new();
+    let store = MemoryStore::new();
     let events = EventBus::new();
-    let user   = UserRepository::create(
+    let user = UserRepository::create(
         &store,
-        CreateUser { email: "v@example.com".into(), username: None, metadata: None },
+        CreateUser {
+            email: "v@example.com".into(),
+            username: None,
+            metadata: None,
+        },
     )
     .await
     .unwrap();
@@ -25,11 +29,15 @@ async fn issue_returns_token() {
 
 #[tokio::test]
 async fn verify_sets_email_verified() {
-    let store  = MemoryStore::new();
+    let store = MemoryStore::new();
     let events = EventBus::new();
     let user = UserRepository::create(
         &store,
-        CreateUser { email: "v@example.com".into(), username: None, metadata: None },
+        CreateUser {
+            email: "v@example.com".into(),
+            username: None,
+            metadata: None,
+        },
     )
     .await
     .unwrap();
@@ -37,7 +45,10 @@ async fn verify_sets_email_verified() {
     let svc = EmailVerificationService::new(store.clone(), events);
     let token = svc.issue(user.id).await.unwrap();
     svc.verify(&token).await.unwrap();
-    let updated = UserRepository::find_by_id(&store, user.id).await.unwrap().unwrap();
+    let updated = UserRepository::find_by_id(&store, user.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(updated.email_verified);
 }
 

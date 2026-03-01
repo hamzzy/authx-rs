@@ -6,8 +6,8 @@ use crate::identity::Identity;
 
 #[derive(Debug, Clone)]
 pub struct AuthzContext<'a> {
-    pub action:      &'a str,
-    pub identity:    &'a Identity,
+    pub action: &'a str,
+    pub identity: &'a Identity,
     pub resource_id: Option<&'a str>,
 }
 
@@ -30,7 +30,9 @@ pub struct AuthzEngine {
 
 impl AuthzEngine {
     pub fn new() -> Self {
-        Self { policies: Vec::new() }
+        Self {
+            policies: Vec::new(),
+        }
     }
 
     pub fn add_policy(&mut self, policy: impl Policy) {
@@ -51,11 +53,15 @@ impl AuthzEngine {
         identity: &Identity,
         resource_id: Option<&str>,
     ) -> Result<()> {
-        let ctx = AuthzContext { action, identity, resource_id };
+        let ctx = AuthzContext {
+            action,
+            identity,
+            resource_id,
+        };
 
         for policy in &self.policies {
             match policy.evaluate(&ctx).await {
-                PolicyDecision::Allow   => {
+                PolicyDecision::Allow => {
                     tracing::debug!(action, policy = policy.name(), "policy allow");
                     return Ok(());
                 }

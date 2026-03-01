@@ -40,12 +40,7 @@
 ///   curl -s -b /tmp/jar http://localhost:3000/me
 use std::time::Duration;
 
-use axum::{
-    middleware,
-    response::Json,
-    routing::get,
-    Router,
-};
+use axum::{middleware, response::Json, routing::get, Router};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -63,7 +58,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let store  = MemoryStore::new();
+    let store = MemoryStore::new();
     let secure = false; // set true in production (HTTPS required)
 
     // 5 failures within 15 minutes triggers lockout.
@@ -79,9 +74,7 @@ async fn main() {
     let csrf_config = CsrfConfig::new(["http://localhost:3000", "https://yourdomain.com"]);
 
     // 20 requests per minute per IP on auth routes.
-    let auth_rate_limit = RateLimitLayer::new(
-        RateLimitConfig::new(20, Duration::from_secs(60))
-    );
+    let auth_rate_limit = RateLimitLayer::new(RateLimitConfig::new(20, Duration::from_secs(60)));
 
     let auth_router = authx_state
         .router()
@@ -90,8 +83,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/me",     get(me))
-        .nest("/auth",    auth_router)
+        .route("/me", get(me))
+        .nest("/auth", auth_router)
         // SessionLayer resolves Identity on every request
         .layer(SessionLayer::new(store))
         .layer(TraceLayer::new_for_http());

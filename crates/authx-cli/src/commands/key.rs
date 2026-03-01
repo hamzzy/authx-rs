@@ -49,14 +49,14 @@ pub struct RevokeArgs {
 pub async fn run(cmd: KeyCommand) -> Result<()> {
     match cmd {
         KeyCommand::Generate(args) => generate(args).await,
-        KeyCommand::List(args)     => list(args).await,
-        KeyCommand::Revoke(args)   => revoke(args).await,
+        KeyCommand::List(args) => list(args).await,
+        KeyCommand::Revoke(args) => revoke(args).await,
     }
 }
 
 async fn generate(args: GenerateArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let svc   = ApiKeyService::new(store);
+    let svc = ApiKeyService::new(store);
 
     let scopes: Vec<String> = args
         .scopes
@@ -82,15 +82,21 @@ async fn generate(args: GenerateArgs) -> Result<()> {
 
 async fn list(args: ListArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let svc   = ApiKeyService::new(store);
-    let keys  = svc.list(args.user_id).await.context("failed to list keys")?;
+    let svc = ApiKeyService::new(store);
+    let keys = svc
+        .list(args.user_id)
+        .await
+        .context("failed to list keys")?;
 
     if keys.is_empty() {
         println!("No API keys found for this user.");
         return Ok(());
     }
 
-    println!("{:<38} {:<10} {:<24} {}", "Key ID", "Prefix", "Name", "Expires");
+    println!(
+        "{:<38} {:<10} {:<24} {}",
+        "Key ID", "Prefix", "Name", "Expires"
+    );
     println!("{}", "-".repeat(90));
     for k in &keys {
         let exp = k.expires_at.map_or("never".into(), |t| t.to_rfc3339());
@@ -101,8 +107,10 @@ async fn list(args: ListArgs) -> Result<()> {
 
 async fn revoke(args: RevokeArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let svc   = ApiKeyService::new(store);
-    svc.revoke(args.user_id, args.key_id).await.context("failed to revoke key")?;
+    let svc = ApiKeyService::new(store);
+    svc.revoke(args.user_id, args.key_id)
+        .await
+        .context("failed to revoke key")?;
     println!("API key {} revoked.", args.key_id);
     Ok(())
 }

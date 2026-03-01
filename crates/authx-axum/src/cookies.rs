@@ -21,8 +21,7 @@ pub fn set_session_cookie(token: &str, max_age_seconds: i64, secure: bool) -> He
         cookie = cookie.secure(true);
     }
 
-    HeaderValue::from_str(&cookie.build().to_string())
-        .expect("cookie value is always valid ASCII")
+    HeaderValue::from_str(&cookie.build().to_string()).expect("cookie value is always valid ASCII")
 }
 
 /// Build a `Set-Cookie` header that immediately expires the session cookie.

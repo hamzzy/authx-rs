@@ -18,16 +18,16 @@ mod html;
 
 use std::sync::Arc;
 
+use authx_core::events::EventBus;
+use authx_plugins::AdminService;
+use authx_storage::ports::{AuditLogRepository, OrgRepository, SessionRepository, UserRepository};
 use axum::{
-    Router,
     extract::State,
     http::{Request, StatusCode},
     middleware::{self, Next},
     response::Response,
+    Router,
 };
-use authx_core::events::EventBus;
-use authx_plugins::AdminService;
-use authx_storage::ports::{AuditLogRepository, OrgRepository, SessionRepository, UserRepository};
 
 /// Shared state threaded through every dashboard route.
 #[derive(Clone)]
@@ -38,8 +38,14 @@ pub struct DashboardState<S> {
 
 impl<S> DashboardState<S>
 where
-    S: UserRepository + SessionRepository + OrgRepository + AuditLogRepository
-        + Clone + Send + Sync + 'static,
+    S: UserRepository
+        + SessionRepository
+        + OrgRepository
+        + AuditLogRepository
+        + Clone
+        + Send
+        + Sync
+        + 'static,
 {
     pub fn new(storage: S, events: EventBus, session_ttl_secs: i64) -> Self {
         Self {
@@ -63,8 +69,8 @@ where
 
 async fn bearer_auth<S>(
     State(state): State<DashboardState<S>>,
-    req:          Request<axum::body::Body>,
-    next:         Next,
+    req: Request<axum::body::Body>,
+    next: Next,
 ) -> Result<Response, StatusCode>
 where
     S: Clone + Send + Sync + 'static,

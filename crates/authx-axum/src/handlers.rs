@@ -24,9 +24,9 @@ use crate::{
 /// Shared state passed into all auth route handlers.
 #[derive(Clone)]
 pub struct AuthxState<S> {
-    pub service:          Arc<EmailPasswordService<S>>,
+    pub service: Arc<EmailPasswordService<S>>,
     pub session_ttl_secs: i64,
-    pub secure_cookies:   bool,
+    pub secure_cookies: bool,
 }
 
 impl<S> AuthxState<S>
@@ -35,9 +35,18 @@ where
 {
     pub fn new(storage: S, session_ttl_secs: i64, secure_cookies: bool) -> Self {
         use authx_core::events::EventBus;
-        let events  = EventBus::new();
-        let service = Arc::new(EmailPasswordService::new(storage, events, 8, session_ttl_secs));
-        Self { service, session_ttl_secs, secure_cookies }
+        let events = EventBus::new();
+        let service = Arc::new(EmailPasswordService::new(
+            storage,
+            events,
+            8,
+            session_ttl_secs,
+        ));
+        Self {
+            service,
+            session_ttl_secs,
+            secure_cookies,
+        }
     }
 
     /// Same as [`new`] but with brute-force lockout enabled.
@@ -48,24 +57,27 @@ where
         lockout: LockoutConfig,
     ) -> Self {
         use authx_core::events::EventBus;
-        let events  = EventBus::new();
+        let events = EventBus::new();
         let service = Arc::new(
-            EmailPasswordService::new(storage, events, 8, session_ttl_secs)
-                .with_lockout(lockout),
+            EmailPasswordService::new(storage, events, 8, session_ttl_secs).with_lockout(lockout),
         );
-        Self { service, session_ttl_secs, secure_cookies }
+        Self {
+            service,
+            session_ttl_secs,
+            secure_cookies,
+        }
     }
 
     /// Build the auth router — nest this under `/auth` in your application.
     pub fn router(self) -> Router {
         Router::new()
-            .route("/sign-up",          post(sign_up::<S>))
-            .route("/sign-in",          post(sign_in::<S>))
-            .route("/sign-out",         post(sign_out::<S>))
-            .route("/sign-out/all",     post(sign_out_all::<S>))
-            .route("/session",          get(get_session))
-            .route("/sessions",         get(list_sessions::<S>))
-            .route("/sessions/:id",     delete(revoke_session::<S>))
+            .route("/sign-up", post(sign_up::<S>))
+            .route("/sign-in", post(sign_in::<S>))
+            .route("/sign-out", post(sign_out::<S>))
+            .route("/sign-out/all", post(sign_out_all::<S>))
+            .route("/session", get(get_session))
+            .route("/sessions", get(list_sessions::<S>))
+            .route("/sessions/:id", delete(revoke_session::<S>))
             .with_state(self)
     }
 }
@@ -74,36 +86,36 @@ where
 
 #[derive(Deserialize)]
 struct SignUpBody {
-    email:    String,
+    email: String,
     password: String,
 }
 
 #[derive(Serialize)]
 struct SignUpResponse {
     user_id: Uuid,
-    email:   String,
+    email: String,
 }
 
 #[derive(Deserialize)]
 struct SignInBody {
-    email:    String,
+    email: String,
     password: String,
 }
 
 #[derive(Serialize)]
 struct SignInResponse {
-    user_id:    Uuid,
+    user_id: Uuid,
     session_id: Uuid,
     /// Raw opaque token — store this client-side or read from cookie.
-    token:      String,
+    token: String,
 }
 
 #[derive(Serialize)]
 struct SessionView {
-    id:         Uuid,
-    user_id:    Uuid,
+    id: Uuid,
+    user_id: Uuid,
     ip_address: String,
-    org_id:     Option<Uuid>,
+    org_id: Option<Uuid>,
     expires_at: String,
     created_at: String,
 }
@@ -111,10 +123,10 @@ struct SessionView {
 impl From<Session> for SessionView {
     fn from(s: Session) -> Self {
         Self {
-            id:         s.id,
-            user_id:    s.user_id,
+            id: s.id,
+            user_id: s.user_id,
             ip_address: s.ip_address,
-            org_id:     s.org_id,
+            org_id: s.org_id,
             expires_at: s.expires_at.to_rfc3339(),
             created_at: s.created_at.to_rfc3339(),
         }
@@ -135,14 +147,21 @@ where
     // leave empty for now — a ConnectInfo extractor handles this in the example app.
     let user = state
         .service
-        .sign_up(SignUpRequest { email: body.email, password: body.password, ip: String::new() })
+        .sign_up(SignUpRequest {
+            email: body.email,
+            password: body.password,
+            ip: String::new(),
+        })
         .await
         .map_err(AuthErrorResponse::from)?;
 
     tracing::info!(user_id = %user.id, "sign-up complete");
     Ok((
         StatusCode::CREATED,
-        Json(SignUpResponse { user_id: user.id, email: user.email }),
+        Json(SignUpResponse {
+            user_id: user.id,
+            email: user.email,
+        }),
     ))
 }
 
@@ -156,7 +175,11 @@ where
 {
     let resp = state
         .service
-        .sign_in(SignInRequest { email: body.email, password: body.password, ip: String::new() })
+        .sign_in(SignInRequest {
+            email: body.email,
+            password: body.password,
+            ip: String::new(),
+        })
         .await
         .map_err(AuthErrorResponse::from)?;
 
@@ -168,9 +191,9 @@ where
         StatusCode::OK,
         [(header::SET_COOKIE, cookie)],
         Json(SignInResponse {
-            user_id:    resp.user.id,
+            user_id: resp.user.id,
             session_id: resp.session.id,
-            token:      resp.token,
+            token: resp.token,
         }),
     ))
 }
@@ -190,7 +213,11 @@ where
         .map_err(AuthErrorResponse::from)?;
 
     let cookie = clear_session_cookie(state.secure_cookies);
-    Ok((StatusCode::OK, [(header::SET_COOKIE, cookie)], Json(serde_json::json!({ "ok": true }))))
+    Ok((
+        StatusCode::OK,
+        [(header::SET_COOKIE, cookie)],
+        Json(serde_json::json!({ "ok": true })),
+    ))
 }
 
 #[instrument(skip(state, identity))]
@@ -208,12 +235,14 @@ where
         .map_err(AuthErrorResponse::from)?;
 
     let cookie = clear_session_cookie(state.secure_cookies);
-    Ok((StatusCode::OK, [(header::SET_COOKIE, cookie)], Json(serde_json::json!({ "ok": true }))))
+    Ok((
+        StatusCode::OK,
+        [(header::SET_COOKIE, cookie)],
+        Json(serde_json::json!({ "ok": true })),
+    ))
 }
 
-async fn get_session(
-    RequireAuth(identity): RequireAuth,
-) -> Json<serde_json::Value> {
+async fn get_session(RequireAuth(identity): RequireAuth) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "user":    identity.user,
         "session": SessionView::from(identity.session),

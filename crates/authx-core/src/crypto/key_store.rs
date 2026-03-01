@@ -11,7 +11,7 @@ use super::signing::Claims;
 /// A versioned key pair entry.
 struct KeyVersion {
     /// Unique version identifier — included in the JWT `kid` header.
-    kid:      String,
+    kid: String,
     encoding: EncodingKey,
     decoding: DecodingKey,
 }
@@ -36,7 +36,7 @@ struct KeyVersion {
 /// store.rotate("v2", NEW_PRIVATE_PEM, NEW_PUBLIC_PEM)?;
 /// ```
 pub struct KeyRotationStore {
-    inner:    Arc<RwLock<Inner>>,
+    inner: Arc<RwLock<Inner>>,
     max_keys: usize,
 }
 
@@ -50,19 +50,28 @@ impl KeyRotationStore {
     pub fn new(max_keys: usize) -> Self {
         let max_keys = max_keys.clamp(1, 16);
         Self {
-            inner:    Arc::new(RwLock::new(Inner { keys: Vec::new() })),
+            inner: Arc::new(RwLock::new(Inner { keys: Vec::new() })),
             max_keys,
         }
     }
 
     /// Load the initial key pair. `kid` is a human-readable version tag.
-    pub fn add_key(&self, kid: impl Into<String>, private_pem: &[u8], public_pem: &[u8]) -> Result<()> {
+    pub fn add_key(
+        &self,
+        kid: impl Into<String>,
+        private_pem: &[u8],
+        public_pem: &[u8],
+    ) -> Result<()> {
         let encoding = EncodingKey::from_ed_pem(private_pem)
             .map_err(|e| AuthError::Internal(format!("invalid private key: {e}")))?;
         let decoding = DecodingKey::from_ed_pem(public_pem)
             .map_err(|e| AuthError::Internal(format!("invalid public key: {e}")))?;
 
-        let version = KeyVersion { kid: kid.into(), encoding, decoding };
+        let version = KeyVersion {
+            kid: kid.into(),
+            encoding,
+            decoding,
+        };
         let mut inner = self.inner.write().expect("key store lock poisoned");
         inner.keys.push(version);
 
@@ -78,7 +87,12 @@ impl KeyRotationStore {
     }
 
     /// Convenience alias — same as `add_key` but semantically signals rotation.
-    pub fn rotate(&self, kid: impl Into<String>, private_pem: &[u8], public_pem: &[u8]) -> Result<()> {
+    pub fn rotate(
+        &self,
+        kid: impl Into<String>,
+        private_pem: &[u8],
+        public_pem: &[u8],
+    ) -> Result<()> {
         self.add_key(kid, private_pem, public_pem)
     }
 
@@ -93,21 +107,27 @@ impl KeyRotationStore {
 
     /// Sign a JWT with the current (newest) key.
     #[instrument(skip(self, extra), fields(sub = %subject))]
-    pub fn sign(&self, subject: Uuid, ttl_seconds: i64, extra: serde_json::Value) -> Result<String> {
+    pub fn sign(
+        &self,
+        subject: Uuid,
+        ttl_seconds: i64,
+        extra: serde_json::Value,
+    ) -> Result<String> {
         use chrono::Utc;
 
         let inner = self.inner.read().expect("key store lock poisoned");
-        let kv = inner.keys.last().ok_or_else(|| {
-            AuthError::Internal("key store is empty — add a key first".into())
-        })?;
+        let kv = inner
+            .keys
+            .last()
+            .ok_or_else(|| AuthError::Internal("key store is empty — add a key first".into()))?;
 
         let now = Utc::now().timestamp();
         let claims = Claims {
-            sub:   subject.to_string(),
-            exp:   now + ttl_seconds,
-            iat:   now,
-            jti:   Uuid::new_v4().to_string(),
-            org:   None,
+            sub: subject.to_string(),
+            exp: now + ttl_seconds,
+            iat: now,
+            jti: Uuid::new_v4().to_string(),
+            org: None,
             extra,
         };
 
@@ -130,8 +150,7 @@ impl KeyRotationStore {
         validation.validate_exp = true;
 
         // Extract `kid` from the header to try the right key first.
-        let header = jsonwebtoken::decode_header(token)
-            .map_err(|_| AuthError::InvalidToken)?;
+        let header = jsonwebtoken::decode_header(token).map_err(|_| AuthError::InvalidToken)?;
         let preferred_kid = header.kid.as_deref();
 
         // Try keys newest-first, preferring the kid match.
@@ -162,13 +181,20 @@ impl KeyRotationStore {
 
     /// Number of currently retained key versions.
     pub fn key_count(&self) -> usize {
-        self.inner.read().expect("key store lock poisoned").keys.len()
+        self.inner
+            .read()
+            .expect("key store lock poisoned")
+            .keys
+            .len()
     }
 }
 
 impl Clone for KeyRotationStore {
     fn clone(&self) -> Self {
-        Self { inner: Arc::clone(&self.inner), max_keys: self.max_keys }
+        Self {
+            inner: Arc::clone(&self.inner),
+            max_keys: self.max_keys,
+        }
     }
 }
 
@@ -197,7 +223,9 @@ mod tests {
     #[test]
     fn empty_store_sign_fails() {
         let store = KeyRotationStore::new(2);
-        assert!(store.sign(Uuid::new_v4(), 3600, serde_json::Value::Null).is_err());
+        assert!(store
+            .sign(Uuid::new_v4(), 3600, serde_json::Value::Null)
+            .is_err());
     }
 
     #[test]

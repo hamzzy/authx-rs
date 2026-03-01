@@ -7,7 +7,7 @@ use authx_core::{crypto::sha256_hex, identity::Identity};
 use authx_storage::ports::{SessionRepository, UserRepository};
 
 const SESSION_HEADER: &str = "x-authx-token";
-const SESSION_COOKIE: &str  = "authx_session";
+const SESSION_COOKIE: &str = "authx_session";
 
 // ── Public Layer ─────────────────────────────────────────────────────────────
 
@@ -31,7 +31,9 @@ where
     S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
 {
     pub fn new(storage: S) -> Self {
-        Self { storage: Arc::new(storage) }
+        Self {
+            storage: Arc::new(storage),
+        }
     }
 }
 
@@ -42,7 +44,10 @@ where
     type Service = SessionService<S, Svc>;
 
     fn layer(&self, inner: Svc) -> Self::Service {
-        SessionService { storage: Arc::clone(&self.storage), inner }
+        SessionService {
+            storage: Arc::clone(&self.storage),
+            inner,
+        }
     }
 }
 
@@ -51,19 +56,20 @@ where
 #[derive(Clone)]
 pub struct SessionService<S, Svc> {
     storage: Arc<S>,
-    inner:   Svc,
+    inner: Svc,
 }
 
 impl<S, Svc, ReqBody> Service<axum::http::Request<ReqBody>> for SessionService<S, Svc>
 where
-    S:       SessionRepository + UserRepository + Clone + Send + Sync + 'static,
-    Svc:     Service<axum::http::Request<ReqBody>, Response = Response> + Clone + Send + 'static,
+    S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
+    Svc: Service<axum::http::Request<ReqBody>, Response = Response> + Clone + Send + 'static,
     Svc::Future: Send + 'static,
     ReqBody: Send + 'static,
 {
     type Response = Response;
-    type Error    = Svc::Error;
-    type Future   = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, Svc::Error>> + Send>>;
+    type Error = Svc::Error;
+    type Future =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, Svc::Error>> + Send>>;
 
     fn poll_ready(
         &mut self,

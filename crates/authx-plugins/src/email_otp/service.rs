@@ -15,9 +15,9 @@ use crate::one_time_token::{OneTimeTokenStore, TokenKind};
 
 #[derive(Debug)]
 pub struct EmailOtpVerifyResponse {
-    pub user:    User,
+    pub user: User,
     pub session: Session,
-    pub token:   String,
+    pub token: String,
 }
 
 /// Email OTP authentication — issues a short-lived one-time code (token)
@@ -27,9 +27,9 @@ pub struct EmailOtpVerifyResponse {
 /// 1. `issue(email)` → raw token (send in email). Returns `None` for unknown emails.
 /// 2. `verify(raw_token, ip)` → session created, `EmailOtpVerifyResponse` returned.
 pub struct EmailOtpService<S> {
-    storage:          S,
-    events:           EventBus,
-    token_store:      OneTimeTokenStore,
+    storage: S,
+    events: EventBus,
+    token_store: OneTimeTokenStore,
     session_ttl_secs: i64,
 }
 
@@ -52,7 +52,7 @@ where
     pub async fn issue(&self, email: &str) -> Result<Option<String>> {
         let user = match UserRepository::find_by_email(&self.storage, email).await? {
             Some(u) => u,
-            None    => {
+            None => {
                 tracing::debug!("email otp requested for unknown email");
                 return Ok(None);
             }
@@ -75,24 +75,31 @@ where
             .ok_or(AuthError::UserNotFound)?;
 
         let raw: [u8; 32] = rand::Rng::gen(&mut rand::thread_rng());
-        let raw_str    = hex::encode(raw);
+        let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
 
         let session = SessionRepository::create(
             &self.storage,
             CreateSession {
-                user_id:     user.id,
+                user_id: user.id,
                 token_hash,
                 device_info: serde_json::Value::Null,
-                ip_address:  ip.to_owned(),
-                org_id:      None,
-                expires_at:  Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                ip_address: ip.to_owned(),
+                org_id: None,
+                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::SignIn { user: user.clone(), session: session.clone() });
+        self.events.emit(AuthEvent::SignIn {
+            user: user.clone(),
+            session: session.clone(),
+        });
         tracing::info!(user_id = %user_id, session_id = %session.id, "email otp sign-in complete");
-        Ok(EmailOtpVerifyResponse { user, session, token: raw_str })
+        Ok(EmailOtpVerifyResponse {
+            user,
+            session,
+            token: raw_str,
+        })
     }
 }

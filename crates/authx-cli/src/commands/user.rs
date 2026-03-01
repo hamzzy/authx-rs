@@ -66,7 +66,7 @@ async fn create(args: CreateArgs) -> Result<()> {
     let user = UserRepository::create(
         &store,
         CreateUser {
-            email:    args.email.clone(),
+            email: args.email.clone(),
             username: args.username.clone(),
             metadata: None,
         },

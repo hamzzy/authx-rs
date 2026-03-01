@@ -8,23 +8,23 @@ mod inner {
     use redis::{aio::MultiplexedConnection, AsyncCommands, Client, Script};
     use uuid::Uuid;
 
+    use crate::one_time_token::TokenKind;
     use authx_core::crypto::sha256_hex;
     use authx_core::error::{AuthError, Result};
-    use crate::one_time_token::TokenKind;
 
     /// Serialization envelope stored in Redis.
     #[derive(serde::Serialize, serde::Deserialize)]
     struct RedisRecord {
-        kind:    u8,
+        kind: u8,
         user_id: Uuid,
     }
 
     fn kind_byte(k: &TokenKind) -> u8 {
         match k {
-            TokenKind::PasswordReset    => 0,
-            TokenKind::MagicLink        => 1,
+            TokenKind::PasswordReset => 0,
+            TokenKind::MagicLink => 1,
             TokenKind::EmailVerification => 2,
-            TokenKind::EmailOtp         => 3,
+            TokenKind::EmailOtp => 3,
         }
     }
 
@@ -67,13 +67,21 @@ mod inner {
         }
 
         /// Issue a token with `ttl_seconds` expiry. Returns the raw (un-hashed) token.
-        pub async fn issue(&self, user_id: Uuid, kind: TokenKind, ttl_seconds: u64) -> Result<String> {
+        pub async fn issue(
+            &self,
+            user_id: Uuid,
+            kind: TokenKind,
+            ttl_seconds: u64,
+        ) -> Result<String> {
             let raw: [u8; 32] = rand::Rng::gen(&mut rand::thread_rng());
             let token = hex::encode(raw);
-            let hash  = sha256_hex(token.as_bytes());
+            let hash = sha256_hex(token.as_bytes());
 
-            let record = RedisRecord { kind: kind_byte(&kind), user_id };
-            let json   = serde_json::to_string(&record)
+            let record = RedisRecord {
+                kind: kind_byte(&kind),
+                user_id,
+            };
+            let json = serde_json::to_string(&record)
                 .map_err(|e| AuthError::Internal(format!("redis token serialize: {e}")))?;
 
             let mut conn = self.conn().await?;
@@ -88,7 +96,11 @@ mod inner {
 
         /// Consume a token atomically (Lua GET+DEL). Returns `None` if the token
         /// is expired, not found, or the wrong kind.
-        pub async fn consume(&self, raw_token: &str, expected_kind: TokenKind) -> Result<Option<Uuid>> {
+        pub async fn consume(
+            &self,
+            raw_token: &str,
+            expected_kind: TokenKind,
+        ) -> Result<Option<Uuid>> {
             let hash = sha256_hex(raw_token.as_bytes());
 
             // Atomic GET+DEL via Lua so no other replica can consume the same token.
@@ -110,7 +122,7 @@ mod inner {
 
             let json = match raw_json {
                 Some(j) => j,
-                None    => {
+                None => {
                     tracing::debug!("redis: token not found or expired");
                     return Ok(None);
                 }

@@ -14,7 +14,7 @@ use crate::one_time_token::{OneTimeTokenStore, TokenKind};
 
 pub struct PasswordResetRequest {
     /// Token received from the reset link.
-    pub token:        String,
+    pub token: String,
     /// The new password the user wants to set.
     pub new_password: String,
 }
@@ -28,9 +28,9 @@ pub struct PasswordResetRequest {
 ///
 /// Tokens expire after `ttl` (default 30 minutes) and are single-use.
 pub struct PasswordResetService<S> {
-    storage:      S,
-    events:       EventBus,
-    token_store:  OneTimeTokenStore,
+    storage: S,
+    events: EventBus,
+    token_store: OneTimeTokenStore,
     min_pass_len: usize,
 }
 
@@ -42,7 +42,7 @@ where
         Self {
             storage,
             events,
-            token_store:  OneTimeTokenStore::new(Duration::from_secs(30 * 60)),
+            token_store: OneTimeTokenStore::new(Duration::from_secs(30 * 60)),
             min_pass_len: 8,
         }
     }
@@ -61,7 +61,7 @@ where
     pub async fn request_reset(&self, email: &str) -> Result<Option<String>> {
         let user = match UserRepository::find_by_email(&self.storage, email).await? {
             Some(u) => u,
-            None    => {
+            None => {
                 tracing::debug!("password reset requested for unknown email");
                 return Ok(None);
             }
@@ -88,9 +88,13 @@ where
             .ok_or(AuthError::InvalidToken)?;
 
         // Verify the new password isn't the same as the current one.
-        if let Some(old_hash) = CredentialRepository::find_password_hash(&self.storage, user_id).await? {
+        if let Some(old_hash) =
+            CredentialRepository::find_password_hash(&self.storage, user_id).await?
+        {
             if verify_password(&old_hash, &req.new_password)? {
-                return Err(AuthError::Internal("new password must differ from current".into()));
+                return Err(AuthError::Internal(
+                    "new password must differ from current".into(),
+                ));
             }
             CredentialRepository::delete_by_user_and_kind(
                 &self.storage,
@@ -105,9 +109,9 @@ where
             &self.storage,
             CreateCredential {
                 user_id,
-                kind:            CredentialKind::Password,
+                kind: CredentialKind::Password,
                 credential_hash: new_hash,
-                metadata:        None,
+                metadata: None,
             },
         )
         .await?;

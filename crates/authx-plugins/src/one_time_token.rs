@@ -16,8 +16,8 @@ use rand::Rng;
 
 #[derive(Clone)]
 struct TokenRecord {
-    kind:       TokenKind,
-    user_id:    uuid::Uuid,
+    kind: TokenKind,
+    user_id: uuid::Uuid,
     expires_at: Instant,
 }
 
@@ -34,18 +34,21 @@ pub enum TokenKind {
 #[derive(Clone)]
 pub struct OneTimeTokenStore {
     inner: Arc<Mutex<HashMap<String, TokenRecord>>>,
-    ttl:   Duration,
+    ttl: Duration,
 }
 
 impl OneTimeTokenStore {
     pub fn new(ttl: Duration) -> Self {
-        Self { inner: Arc::new(Mutex::new(HashMap::new())), ttl }
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            ttl,
+        }
     }
 
     pub fn issue(&self, user_id: uuid::Uuid, kind: TokenKind) -> String {
-        let raw:  [u8; 32] = rand::thread_rng().gen();
-        let token  = hex::encode(raw);
-        let hash   = sha256_hex(token.as_bytes());
+        let raw: [u8; 32] = rand::thread_rng().gen();
+        let token = hex::encode(raw);
+        let hash = sha256_hex(token.as_bytes());
 
         let record = TokenRecord {
             kind,
@@ -62,11 +65,7 @@ impl OneTimeTokenStore {
         token
     }
 
-    pub fn consume(
-        &self,
-        raw_token: &str,
-        expected_kind: TokenKind,
-    ) -> Option<uuid::Uuid> {
+    pub fn consume(&self, raw_token: &str, expected_kind: TokenKind) -> Option<uuid::Uuid> {
         let hash = sha256_hex(raw_token.as_bytes());
         let mut map = self.inner.lock().expect("token store lock poisoned");
 

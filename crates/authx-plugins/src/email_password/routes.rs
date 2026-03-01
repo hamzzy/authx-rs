@@ -17,5 +17,8 @@ where
 }
 
 async fn not_implemented() -> impl IntoResponse {
-    (StatusCode::NOT_IMPLEMENTED, "wire via AuthxState in authx-axum")
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        "wire via AuthxState in authx-axum",
+    )
 }

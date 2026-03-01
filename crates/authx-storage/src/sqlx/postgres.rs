@@ -62,56 +62,56 @@ fn db_err(e: sqlx::Error) -> AuthError {
 
 fn credential_kind_str(k: &CredentialKind) -> &'static str {
     match k {
-        CredentialKind::Password   => "password",
-        CredentialKind::Passkey    => "passkey",
+        CredentialKind::Password => "password",
+        CredentialKind::Passkey => "passkey",
         CredentialKind::OauthToken => "oauth_token",
     }
 }
 
 fn credential_kind_from_str(s: &str) -> CredentialKind {
     match s {
-        "passkey"     => CredentialKind::Passkey,
+        "passkey" => CredentialKind::Passkey,
         "oauth_token" => CredentialKind::OauthToken,
-        _             => CredentialKind::Password,
+        _ => CredentialKind::Password,
     }
 }
 
 fn map_user(r: &sqlx::postgres::PgRow) -> User {
     User {
-        id:             r.get("id"),
-        email:          r.get("email"),
+        id: r.get("id"),
+        email: r.get("email"),
         email_verified: r.get("email_verified"),
-        username:       r.get("username"),
-        created_at:     r.get("created_at"),
-        updated_at:     r.get("updated_at"),
-        metadata:       r.get::<serde_json::Value, _>("metadata"),
+        username: r.get("username"),
+        created_at: r.get("created_at"),
+        updated_at: r.get("updated_at"),
+        metadata: r.get::<serde_json::Value, _>("metadata"),
     }
 }
 
 fn map_session(r: &sqlx::postgres::PgRow) -> Session {
     Session {
-        id:          r.get("id"),
-        user_id:     r.get("user_id"),
-        token_hash:  r.get("token_hash"),
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        token_hash: r.get("token_hash"),
         device_info: r.get::<serde_json::Value, _>("device_info"),
-        ip_address:  r.get("ip_address"),
-        org_id:      r.get("org_id"),
-        expires_at:  r.get("expires_at"),
-        created_at:  r.get("created_at"),
+        ip_address: r.get("ip_address"),
+        org_id: r.get("org_id"),
+        expires_at: r.get("expires_at"),
+        created_at: r.get("created_at"),
     }
 }
 
 fn map_audit_log(r: &sqlx::postgres::PgRow) -> AuditLog {
     AuditLog {
-        id:            r.get("id"),
-        user_id:       r.get("user_id"),
-        org_id:        r.get("org_id"),
-        action:        r.get("action"),
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        org_id: r.get("org_id"),
+        action: r.get("action"),
         resource_type: r.get("resource_type"),
-        resource_id:   r.get("resource_id"),
-        ip_address:    r.get("ip_address"),
-        metadata:      r.get::<serde_json::Value, _>("metadata"),
-        created_at:    r.get("created_at"),
+        resource_id: r.get("resource_id"),
+        ip_address: r.get("ip_address"),
+        metadata: r.get::<serde_json::Value, _>("metadata"),
+        created_at: r.get("created_at"),
     }
 }
 
@@ -337,7 +337,7 @@ impl SessionRepository for PostgresStore {
 impl CredentialRepository for PostgresStore {
     async fn create(&self, data: CreateCredential) -> Result<Credential> {
         let kind_str = credential_kind_str(&data.kind);
-        let meta     = data.metadata.unwrap_or(serde_json::Value::Null);
+        let meta = data.metadata.unwrap_or(serde_json::Value::Null);
 
         let row = sqlx::query(
             "INSERT INTO authx_credentials (id, user_id, kind, credential_hash, metadata) \
@@ -355,11 +355,11 @@ impl CredentialRepository for PostgresStore {
 
         tracing::debug!(user_id = %data.user_id, kind = kind_str, "credential inserted");
         Ok(Credential {
-            id:              row.get("id"),
-            user_id:         row.get("user_id"),
-            kind:            credential_kind_from_str(row.get("kind")),
+            id: row.get("id"),
+            user_id: row.get("user_id"),
+            kind: credential_kind_from_str(row.get("kind")),
             credential_hash: row.get("credential_hash"),
-            metadata:        row.get::<serde_json::Value, _>("metadata"),
+            metadata: row.get::<serde_json::Value, _>("metadata"),
         })
     }
 
@@ -391,23 +391,21 @@ impl CredentialRepository for PostgresStore {
         .map_err(db_err)?;
 
         Ok(row.map(|r| Credential {
-            id:              r.get("id"),
-            user_id:         r.get("user_id"),
-            kind:            credential_kind_from_str(r.get("kind")),
+            id: r.get("id"),
+            user_id: r.get("user_id"),
+            kind: credential_kind_from_str(r.get("kind")),
             credential_hash: r.get("credential_hash"),
-            metadata:        r.get::<serde_json::Value, _>("metadata"),
+            metadata: r.get::<serde_json::Value, _>("metadata"),
         }))
     }
 
     async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()> {
-        let result = sqlx::query(
-            "DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2",
-        )
-        .bind(user_id)
-        .bind(credential_kind_str(&kind))
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
+        let result = sqlx::query("DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2")
+            .bind(user_id)
+            .bind(credential_kind_str(&kind))
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage(StorageError::NotFound));
@@ -420,23 +418,23 @@ impl CredentialRepository for PostgresStore {
 
 fn map_org(r: &sqlx::postgres::PgRow) -> Organization {
     Organization {
-        id:         r.get("id"),
-        name:       r.get("name"),
-        slug:       r.get("slug"),
-        metadata:   r.get::<serde_json::Value, _>("metadata"),
+        id: r.get("id"),
+        name: r.get("name"),
+        slug: r.get("slug"),
+        metadata: r.get::<serde_json::Value, _>("metadata"),
         created_at: r.get("created_at"),
     }
 }
 
 fn map_membership(r: &sqlx::postgres::PgRow) -> Membership {
     Membership {
-        id:      r.get("id"),
+        id: r.get("id"),
         user_id: r.get("user_id"),
-        org_id:  r.get("org_id"),
+        org_id: r.get("org_id"),
         role: Role {
-            id:          r.get("role_id"),
-            org_id:      r.get("role_org_id"),
-            name:        r.get("role_name"),
+            id: r.get("role_id"),
+            org_id: r.get("role_org_id"),
+            name: r.get("role_name"),
             permissions: r.get::<Vec<String>, _>("permissions"),
         },
         created_at: r.get("created_at"),
@@ -461,9 +459,10 @@ impl OrgRepository for PostgresStore {
         .map_err(|e| {
             if let sqlx::Error::Database(ref dbe) = e {
                 if dbe.constraint() == Some("authx_orgs_slug_key") {
-                    return AuthError::Storage(StorageError::Conflict(
-                        format!("slug '{}' already taken", data.slug),
-                    ));
+                    return AuthError::Storage(StorageError::Conflict(format!(
+                        "slug '{}' already taken",
+                        data.slug
+                    )));
                 }
             }
             db_err(e)
@@ -496,19 +495,18 @@ impl OrgRepository for PostgresStore {
     }
 
     async fn add_member(&self, org_id: Uuid, user_id: Uuid, role_id: Uuid) -> Result<Membership> {
-        let role_row = sqlx::query(
-            "SELECT id, org_id, name, permissions FROM authx_roles WHERE id = $1",
-        )
-        .bind(role_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(db_err)?
-        .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        let role_row =
+            sqlx::query("SELECT id, org_id, name, permissions FROM authx_roles WHERE id = $1")
+                .bind(role_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?
+                .ok_or(AuthError::Storage(StorageError::NotFound))?;
 
         let role = Role {
-            id:          role_row.get("id"),
-            org_id:      role_row.get("org_id"),
-            name:        role_row.get("name"),
+            id: role_row.get("id"),
+            org_id: role_row.get("org_id"),
+            name: role_row.get("name"),
             permissions: role_row.get::<Vec<String>, _>("permissions"),
         };
 
@@ -527,23 +525,22 @@ impl OrgRepository for PostgresStore {
 
         tracing::debug!(org_id = %org_id, user_id = %user_id, "member added");
         Ok(Membership {
-            id:         row.get("id"),
-            user_id:    row.get("user_id"),
-            org_id:     row.get("org_id"),
+            id: row.get("id"),
+            user_id: row.get("user_id"),
+            org_id: row.get("org_id"),
             role,
             created_at: row.get("created_at"),
         })
     }
 
     async fn remove_member(&self, org_id: Uuid, user_id: Uuid) -> Result<()> {
-        let result = sqlx::query(
-            "DELETE FROM authx_memberships WHERE org_id = $1 AND user_id = $2",
-        )
-        .bind(org_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
+        let result =
+            sqlx::query("DELETE FROM authx_memberships WHERE org_id = $1 AND user_id = $2")
+                .bind(org_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(db_err)?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage(StorageError::NotFound));
@@ -567,22 +564,29 @@ impl OrgRepository for PostgresStore {
     }
 
     async fn find_roles(&self, org_id: Uuid) -> Result<Vec<Role>> {
-        let rows = sqlx::query(
-            "SELECT id, org_id, name, permissions FROM authx_roles WHERE org_id = $1",
-        )
-        .bind(org_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?;
-        Ok(rows.iter().map(|r| Role {
-            id:          r.get("id"),
-            org_id:      r.get("org_id"),
-            name:        r.get("name"),
-            permissions: r.get::<Vec<String>, _>("permissions"),
-        }).collect())
+        let rows =
+            sqlx::query("SELECT id, org_id, name, permissions FROM authx_roles WHERE org_id = $1")
+                .bind(org_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?;
+        Ok(rows
+            .iter()
+            .map(|r| Role {
+                id: r.get("id"),
+                org_id: r.get("org_id"),
+                name: r.get("name"),
+                permissions: r.get::<Vec<String>, _>("permissions"),
+            })
+            .collect())
     }
 
-    async fn create_role(&self, org_id: Uuid, name: String, permissions: Vec<String>) -> Result<Role> {
+    async fn create_role(
+        &self,
+        org_id: Uuid,
+        name: String,
+        permissions: Vec<String>,
+    ) -> Result<Role> {
         let row = sqlx::query(
             "INSERT INTO authx_roles (id, org_id, name, permissions) \
              VALUES ($1, $2, $3, $4) \
@@ -598,23 +602,26 @@ impl OrgRepository for PostgresStore {
 
         tracing::debug!(org_id = %org_id, name = %name, "role created");
         Ok(Role {
-            id:          row.get("id"),
-            org_id:      row.get("org_id"),
-            name:        row.get("name"),
+            id: row.get("id"),
+            org_id: row.get("org_id"),
+            name: row.get("name"),
             permissions: row.get::<Vec<String>, _>("permissions"),
         })
     }
 
-    async fn update_member_role(&self, org_id: Uuid, user_id: Uuid, role_id: Uuid) -> Result<Membership> {
-        sqlx::query(
-            "UPDATE authx_memberships SET role_id = $3 WHERE org_id = $1 AND user_id = $2",
-        )
-        .bind(org_id)
-        .bind(user_id)
-        .bind(role_id)
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
+    async fn update_member_role(
+        &self,
+        org_id: Uuid,
+        user_id: Uuid,
+        role_id: Uuid,
+    ) -> Result<Membership> {
+        sqlx::query("UPDATE authx_memberships SET role_id = $3 WHERE org_id = $1 AND user_id = $2")
+            .bind(org_id)
+            .bind(user_id)
+            .bind(role_id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
 
         let rows = sqlx::query(
             "SELECT m.id, m.user_id, m.org_id, m.created_at, \
@@ -693,14 +700,14 @@ impl AuditLogRepository for PostgresStore {
 
 fn map_api_key(r: &sqlx::postgres::PgRow) -> ApiKey {
     ApiKey {
-        id:           r.get("id"),
-        user_id:      r.get("user_id"),
-        org_id:       r.get("org_id"),
-        key_hash:     r.get("key_hash"),
-        prefix:       r.get("prefix"),
-        name:         r.get("name"),
-        scopes:       r.get::<Vec<String>, _>("scopes"),
-        expires_at:   r.get("expires_at"),
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        org_id: r.get("org_id"),
+        key_hash: r.get("key_hash"),
+        prefix: r.get("prefix"),
+        name: r.get("name"),
+        scopes: r.get::<Vec<String>, _>("scopes"),
+        expires_at: r.get("expires_at"),
         last_used_at: r.get("last_used_at"),
     }
 }
@@ -755,14 +762,12 @@ impl ApiKeyRepository for PostgresStore {
     }
 
     async fn revoke(&self, key_id: Uuid, user_id: Uuid) -> Result<()> {
-        let result = sqlx::query(
-            "DELETE FROM authx_api_keys WHERE id = $1 AND user_id = $2",
-        )
-        .bind(key_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
+        let result = sqlx::query("DELETE FROM authx_api_keys WHERE id = $1 AND user_id = $2")
+            .bind(key_id)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage(StorageError::NotFound));
@@ -786,13 +791,13 @@ impl ApiKeyRepository for PostgresStore {
 
 fn map_oauth_account(r: &sqlx::postgres::PgRow) -> OAuthAccount {
     OAuthAccount {
-        id:                r.get("id"),
-        user_id:           r.get("user_id"),
-        provider:          r.get("provider"),
-        provider_user_id:  r.get("provider_user_id"),
-        access_token_enc:  r.get("access_token_enc"),
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        provider: r.get("provider"),
+        provider_user_id: r.get("provider_user_id"),
+        access_token_enc: r.get("access_token_enc"),
         refresh_token_enc: r.get("refresh_token_enc"),
-        expires_at:        r.get("expires_at"),
+        expires_at: r.get("expires_at"),
     }
 }
 
@@ -824,7 +829,11 @@ impl OAuthAccountRepository for PostgresStore {
         Ok(map_oauth_account(&row))
     }
 
-    async fn find_by_provider(&self, provider: &str, provider_user_id: &str) -> Result<Option<OAuthAccount>> {
+    async fn find_by_provider(
+        &self,
+        provider: &str,
+        provider_user_id: &str,
+    ) -> Result<Option<OAuthAccount>> {
         let row = sqlx::query(
             "SELECT id, user_id, provider, provider_user_id, access_token_enc, refresh_token_enc, expires_at \
              FROM authx_oauth_accounts WHERE provider = $1 AND provider_user_id = $2",
@@ -867,12 +876,12 @@ impl OAuthAccountRepository for PostgresStore {
 
 fn map_invite(r: &sqlx::postgres::PgRow) -> Invite {
     Invite {
-        id:          r.get("id"),
-        org_id:      r.get("org_id"),
-        email:       r.get("email"),
-        role_id:     r.get("role_id"),
-        token_hash:  r.get("token_hash"),
-        expires_at:  r.get("expires_at"),
+        id: r.get("id"),
+        org_id: r.get("org_id"),
+        email: r.get("email"),
+        role_id: r.get("role_id"),
+        token_hash: r.get("token_hash"),
+        expires_at: r.get("expires_at"),
         accepted_at: r.get("accepted_at"),
     }
 }

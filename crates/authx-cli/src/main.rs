@@ -6,9 +6,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 #[derive(Parser)]
 #[command(
-    name    = "authx",
+    name = "authx",
     version,
-    about   = "authx-rs — authentication framework CLI",
+    about = "authx-rs — authentication framework CLI",
     long_about = "Manage an authx server: run migrations, start the HTTP server, and administer users & API keys."
 )]
 struct Cli {
@@ -43,9 +43,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Serve(args)        => commands::serve::run(args).await,
-        Command::Migrate(args)      => commands::migrate::run(args).await,
-        Command::User(cmd)          => commands::user::run(cmd).await,
-        Command::Key(cmd)           => commands::key::run(cmd).await,
+        Command::Serve(args) => commands::serve::run(args).await,
+        Command::Migrate(args) => commands::migrate::run(args).await,
+        Command::User(cmd) => commands::user::run(cmd).await,
+        Command::Key(cmd) => commands::key::run(cmd).await,
     }
 }

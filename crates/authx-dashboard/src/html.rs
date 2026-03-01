@@ -1,4 +1,4 @@
-use axum::{Router, routing::get, response::Html};
+use axum::{response::Html, routing::get, Router};
 
 static INDEX_HTML: &str = include_str!("../assets/index.html");
 

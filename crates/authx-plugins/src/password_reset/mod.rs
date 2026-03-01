@@ -5,11 +5,7 @@ pub use service::{PasswordResetRequest, PasswordResetService};
 #[cfg(test)]
 mod tests {
     use super::service::{PasswordResetRequest, PasswordResetService};
-    use authx_core::{
-        error::AuthError,
-        events::EventBus,
-        models::CreateUser,
-    };
+    use authx_core::{error::AuthError, events::EventBus, models::CreateUser};
     use authx_storage::{memory::MemoryStore, ports::UserRepository};
 
     fn setup() -> (MemoryStore, EventBus) {
@@ -17,11 +13,14 @@ mod tests {
     }
 
     async fn make_user(store: &MemoryStore) -> uuid::Uuid {
-        UserRepository::create(store, CreateUser {
-            email:    "reset@example.com".into(),
-            username: None,
-            metadata: None,
-        })
+        UserRepository::create(
+            store,
+            CreateUser {
+                email: "reset@example.com".into(),
+                username: None,
+                metadata: None,
+            },
+        )
         .await
         .unwrap()
         .id
@@ -49,19 +48,20 @@ mod tests {
     async fn reset_password_fails_with_bad_token() {
         let (store, events) = setup();
         let svc = PasswordResetService::new(store, events);
-        let err = svc.reset_password(PasswordResetRequest {
-            token:        "bad_token".into(),
-            new_password: "newpassword123".into(),
-        })
-        .await
-        .unwrap_err();
+        let err = svc
+            .reset_password(PasswordResetRequest {
+                token: "bad_token".into(),
+                new_password: "newpassword123".into(),
+            })
+            .await
+            .unwrap_err();
         assert!(matches!(err, AuthError::InvalidToken));
     }
 
     #[tokio::test]
     async fn reset_password_succeeds_with_valid_token() {
-        use authx_core::models::{CreateCredential, CredentialKind};
         use authx_core::crypto::hash_password;
+        use authx_core::models::{CreateCredential, CredentialKind};
         use authx_storage::ports::CredentialRepository;
 
         let (store, events) = setup();
@@ -69,12 +69,15 @@ mod tests {
 
         // Give the user an initial password.
         let old_hash = hash_password("oldpass123").unwrap();
-        CredentialRepository::create(&store, CreateCredential {
-            user_id:         uid,
-            kind:            CredentialKind::Password,
-            credential_hash: old_hash,
-            metadata:        None,
-        })
+        CredentialRepository::create(
+            &store,
+            CreateCredential {
+                user_id: uid,
+                kind: CredentialKind::Password,
+                credential_hash: old_hash,
+                metadata: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -102,32 +105,40 @@ mod tests {
 
     #[tokio::test]
     async fn reset_password_rejects_same_password() {
-        use authx_core::models::{CreateCredential, CredentialKind};
         use authx_core::crypto::hash_password;
+        use authx_core::models::{CreateCredential, CredentialKind};
         use authx_storage::ports::CredentialRepository;
 
         let (store, events) = setup();
         let uid = make_user(&store).await;
 
         let old_hash = hash_password("samepass123").unwrap();
-        CredentialRepository::create(&store, CreateCredential {
-            user_id:         uid,
-            kind:            CredentialKind::Password,
-            credential_hash: old_hash,
-            metadata:        None,
-        })
+        CredentialRepository::create(
+            &store,
+            CreateCredential {
+                user_id: uid,
+                kind: CredentialKind::Password,
+                credential_hash: old_hash,
+                metadata: None,
+            },
+        )
         .await
         .unwrap();
 
         let svc = PasswordResetService::new(store.clone(), events);
-        let token = svc.request_reset("reset@example.com").await.unwrap().unwrap();
+        let token = svc
+            .request_reset("reset@example.com")
+            .await
+            .unwrap()
+            .unwrap();
 
-        let err = svc.reset_password(PasswordResetRequest {
-            token,
-            new_password: "samepass123".into(),
-        })
-        .await
-        .unwrap_err();
+        let err = svc
+            .reset_password(PasswordResetRequest {
+                token,
+                new_password: "samepass123".into(),
+            })
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, AuthError::Internal(_)));
     }

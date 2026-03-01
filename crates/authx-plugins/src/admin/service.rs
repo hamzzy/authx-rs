@@ -22,17 +22,28 @@ pub enum BanStatus {
 /// Callers are responsible for verifying that the *acting* identity has admin
 /// privileges before calling any method.
 pub struct AdminService<S> {
-    storage:          S,
-    events:           EventBus,
+    storage: S,
+    events: EventBus,
     session_ttl_secs: i64,
 }
 
 impl<S> AdminService<S>
 where
-    S: UserRepository + SessionRepository + OrgRepository + AuditLogRepository + Clone + Send + Sync + 'static,
+    S: UserRepository
+        + SessionRepository
+        + OrgRepository
+        + AuditLogRepository
+        + Clone
+        + Send
+        + Sync
+        + 'static,
 {
     pub fn new(storage: S, events: EventBus, session_ttl_secs: i64) -> Self {
-        Self { storage, events, session_ttl_secs }
+        Self {
+            storage,
+            events,
+            session_ttl_secs,
+        }
     }
 
     /// Paginated list of all users ordered by `created_at`.
@@ -56,25 +67,30 @@ where
     pub async fn create_user(&self, admin_id: Uuid, email: String) -> Result<User> {
         let user = UserRepository::create(
             &self.storage,
-            CreateUser { email: email.clone(), username: None, metadata: None },
+            CreateUser {
+                email: email.clone(),
+                username: None,
+                metadata: None,
+            },
         )
         .await?;
 
         AuditLogRepository::append(
             &self.storage,
             authx_core::models::CreateAuditLog {
-                user_id:       Some(admin_id),
-                org_id:        None,
-                action:        "admin.create_user".into(),
+                user_id: Some(admin_id),
+                org_id: None,
+                action: "admin.create_user".into(),
                 resource_type: "user".into(),
-                resource_id:   Some(user.id.to_string()),
-                ip_address:    None,
-                metadata:      Some(serde_json::json!({ "email": email })),
+                resource_id: Some(user.id.to_string()),
+                ip_address: None,
+                metadata: Some(serde_json::json!({ "email": email })),
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::UserCreated { user: user.clone() });
+        self.events
+            .emit(AuthEvent::UserCreated { user: user.clone() });
         tracing::info!(admin = %admin_id, user_id = %user.id, "admin: user created");
         Ok(user)
     }
@@ -84,22 +100,23 @@ where
     pub async fn set_role(
         &self,
         admin_id: Uuid,
-        org_id:   Uuid,
-        user_id:  Uuid,
-        role_id:  Uuid,
+        org_id: Uuid,
+        user_id: Uuid,
+        role_id: Uuid,
     ) -> Result<authx_core::models::Membership> {
-        let membership = OrgRepository::update_member_role(&self.storage, org_id, user_id, role_id).await?;
+        let membership =
+            OrgRepository::update_member_role(&self.storage, org_id, user_id, role_id).await?;
 
         AuditLogRepository::append(
             &self.storage,
             authx_core::models::CreateAuditLog {
-                user_id:       Some(admin_id),
-                org_id:        Some(org_id),
-                action:        "admin.set_role".into(),
+                user_id: Some(admin_id),
+                org_id: Some(org_id),
+                action: "admin.set_role".into(),
                 resource_type: "membership".into(),
-                resource_id:   Some(user_id.to_string()),
-                ip_address:    None,
-                metadata:      Some(serde_json::json!({ "role_id": role_id })),
+                resource_id: Some(user_id.to_string()),
+                ip_address: None,
+                metadata: Some(serde_json::json!({ "role_id": role_id })),
             },
         )
         .await?;
@@ -126,13 +143,13 @@ where
         AuditLogRepository::append(
             &self.storage,
             authx_core::models::CreateAuditLog {
-                user_id:       Some(admin_id),
-                org_id:        None,
-                action:        "admin.ban_user".into(),
+                user_id: Some(admin_id),
+                org_id: None,
+                action: "admin.ban_user".into(),
                 resource_type: "user".into(),
-                resource_id:   Some(user_id.to_string()),
-                ip_address:    None,
-                metadata:      Some(serde_json::json!({ "reason": reason })),
+                resource_id: Some(user_id.to_string()),
+                ip_address: None,
+                metadata: Some(serde_json::json!({ "reason": reason })),
             },
         )
         .await?;
@@ -157,13 +174,13 @@ where
         AuditLogRepository::append(
             &self.storage,
             authx_core::models::CreateAuditLog {
-                user_id:       Some(admin_id),
-                org_id:        None,
-                action:        "admin.unban_user".into(),
+                user_id: Some(admin_id),
+                org_id: None,
+                action: "admin.unban_user".into(),
                 resource_type: "user".into(),
-                resource_id:   Some(user_id.to_string()),
-                ip_address:    None,
-                metadata:      None,
+                resource_id: Some(user_id.to_string()),
+                ip_address: None,
+                metadata: None,
             },
         )
         .await?;
@@ -176,31 +193,39 @@ where
         let user = UserRepository::find_by_id(&self.storage, user_id)
             .await?
             .ok_or(AuthError::UserNotFound)?;
-        let banned = user.metadata.get("banned").and_then(|v| v.as_bool()).unwrap_or(false);
-        Ok(if banned { BanStatus::Banned } else { BanStatus::Active })
+        let banned = user
+            .metadata
+            .get("banned")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        Ok(if banned {
+            BanStatus::Banned
+        } else {
+            BanStatus::Active
+        })
     }
 
     /// Create an impersonation session for `target_user_id`.
     #[instrument(skip(self), fields(target = %target_id, acting_admin = %admin_id))]
     pub async fn impersonate(
         &self,
-        admin_id:  Uuid,
+        admin_id: Uuid,
         target_id: Uuid,
-        admin_ip:  &str,
+        admin_ip: &str,
     ) -> Result<(Session, String)> {
         let raw: [u8; 32] = rand::thread_rng().gen();
-        let raw_token  = hex::encode(raw);
+        let raw_token = hex::encode(raw);
         let token_hash = sha256_hex(raw_token.as_bytes());
 
         let session = SessionRepository::create(
             &self.storage,
             CreateSession {
-                user_id:     target_id,
+                user_id: target_id,
                 token_hash,
                 device_info: serde_json::json!({ "impersonated_by": admin_id }),
-                ip_address:  format!("impersonation:{admin_id}@{admin_ip}"),
-                org_id:      None,
-                expires_at:  Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                ip_address: format!("impersonation:{admin_id}@{admin_ip}"),
+                org_id: None,
+                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
         .await?;
@@ -208,13 +233,13 @@ where
         AuditLogRepository::append(
             &self.storage,
             authx_core::models::CreateAuditLog {
-                user_id:       Some(admin_id),
-                org_id:        None,
-                action:        "admin.impersonate".into(),
+                user_id: Some(admin_id),
+                org_id: None,
+                action: "admin.impersonate".into(),
                 resource_type: "session".into(),
-                resource_id:   Some(session.id.to_string()),
-                ip_address:    Some(admin_ip.to_owned()),
-                metadata:      Some(serde_json::json!({ "target_user_id": target_id })),
+                resource_id: Some(session.id.to_string()),
+                ip_address: Some(admin_ip.to_owned()),
+                metadata: Some(serde_json::json!({ "target_user_id": target_id })),
             },
         )
         .await?;

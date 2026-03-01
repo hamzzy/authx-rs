@@ -20,7 +20,9 @@ pub struct EventBus {
 impl EventBus {
     pub fn new() -> Self {
         let (sender, _) = broadcast::channel(BUS_CAPACITY);
-        Self { sender: Arc::new(sender) }
+        Self {
+            sender: Arc::new(sender),
+        }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<AuthEvent> {
@@ -31,7 +33,7 @@ impl EventBus {
     pub fn emit(&self, event: AuthEvent) {
         let name = event.name();
         match self.sender.send(event) {
-            Ok(n)  => tracing::debug!(listeners = n, event = name, "event emitted"),
+            Ok(n) => tracing::debug!(listeners = n, event = name, "event emitted"),
             Err(_) => tracing::debug!(event = name, "no listeners for event"),
         }
     }

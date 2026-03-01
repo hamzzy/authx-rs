@@ -13,40 +13,51 @@ use authx_core::{
 use authx_storage::ports::{CredentialRepository, SessionRepository, UserRepository};
 
 pub struct SignUpRequest {
-    pub email:    String,
+    pub email: String,
     pub password: String,
-    pub ip:       String,
+    pub ip: String,
 }
 
 pub struct SignInRequest {
-    pub email:    String,
+    pub email: String,
     pub password: String,
-    pub ip:       String,
+    pub ip: String,
 }
 
 #[derive(Debug)]
 pub struct AuthResponse {
-    pub user:    User,
+    pub user: User,
     pub session: Session,
     /// Raw opaque token returned to the client once. The SHA-256 hash is
     /// stored in the database — never the raw value.
-    pub token:   String,
+    pub token: String,
 }
 
 pub struct EmailPasswordService<S> {
-    storage:          S,
-    events:           EventBus,
+    storage: S,
+    events: EventBus,
     min_password_len: usize,
     session_ttl_secs: i64,
-    lockout:          Option<LoginAttemptTracker>,
+    lockout: Option<LoginAttemptTracker>,
 }
 
 impl<S> EmailPasswordService<S>
 where
     S: UserRepository + SessionRepository + CredentialRepository + Clone + Send + Sync + 'static,
 {
-    pub fn new(storage: S, events: EventBus, min_password_len: usize, session_ttl_secs: i64) -> Self {
-        Self { storage, events, min_password_len, session_ttl_secs, lockout: None }
+    pub fn new(
+        storage: S,
+        events: EventBus,
+        min_password_len: usize,
+        session_ttl_secs: i64,
+    ) -> Self {
+        Self {
+            storage,
+            events,
+            min_password_len,
+            session_ttl_secs,
+            lockout: None,
+        }
     }
 
     /// Enable brute-force lockout with the given configuration.
@@ -64,7 +75,10 @@ where
             )));
         }
 
-        if UserRepository::find_by_email(&self.storage, &req.email).await?.is_some() {
+        if UserRepository::find_by_email(&self.storage, &req.email)
+            .await?
+            .is_some()
+        {
             return Err(AuthError::EmailTaken);
         }
 
@@ -72,22 +86,27 @@ where
 
         let user = UserRepository::create(
             &self.storage,
-            CreateUser { email: req.email, username: None, metadata: None },
+            CreateUser {
+                email: req.email,
+                username: None,
+                metadata: None,
+            },
         )
         .await?;
 
         CredentialRepository::create(
             &self.storage,
             CreateCredential {
-                user_id:         user.id,
-                kind:            CredentialKind::Password,
+                user_id: user.id,
+                kind: CredentialKind::Password,
                 credential_hash: hash,
-                metadata:        None,
+                metadata: None,
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::UserCreated { user: user.clone() });
+        self.events
+            .emit(AuthEvent::UserCreated { user: user.clone() });
         tracing::info!(user_id = %user.id, "user registered");
         Ok(user)
     }
@@ -123,26 +142,33 @@ where
             tracker.record_success(&req.email);
         }
 
-        let raw_token  = generate_token();
+        let raw_token = generate_token();
         let token_hash = sha256_hex(raw_token.as_bytes());
 
         let session = SessionRepository::create(
             &self.storage,
             CreateSession {
-                user_id:     user.id,
+                user_id: user.id,
                 token_hash,
                 device_info: serde_json::Value::Null,
-                ip_address:  req.ip,
-                org_id:      None,
-                expires_at:  Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                ip_address: req.ip,
+                org_id: None,
+                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::SignIn { user: user.clone(), session: session.clone() });
+        self.events.emit(AuthEvent::SignIn {
+            user: user.clone(),
+            session: session.clone(),
+        });
         tracing::info!(user_id = %user.id, session_id = %session.id, "signed in");
 
-        Ok(AuthResponse { user, session, token: raw_token })
+        Ok(AuthResponse {
+            user,
+            session,
+            token: raw_token,
+        })
     }
 
     #[instrument(skip(self))]

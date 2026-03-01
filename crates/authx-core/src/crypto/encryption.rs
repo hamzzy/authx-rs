@@ -11,8 +11,8 @@ const NONCE_LEN: usize = 12;
 /// Encrypts plaintext with AES-256-GCM. Returns `nonce || ciphertext` as hex.
 #[instrument(skip(key, plaintext))]
 pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<String> {
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| AuthError::EncryptionError(e.to_string()))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| AuthError::EncryptionError(e.to_string()))?;
 
     let mut nonce_bytes = [0u8; NONCE_LEN];
     OsRng.fill_bytes(&mut nonce_bytes);
@@ -33,8 +33,8 @@ pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<String> {
 /// Decrypts hex-encoded `nonce || ciphertext` produced by [`encrypt`].
 #[instrument(skip(key, hex_blob))]
 pub fn decrypt(key: &[u8; 32], hex_blob: &str) -> Result<Vec<u8>> {
-    let raw = hex::decode(hex_blob)
-        .map_err(|_| AuthError::EncryptionError("invalid hex".into()))?;
+    let raw =
+        hex::decode(hex_blob).map_err(|_| AuthError::EncryptionError("invalid hex".into()))?;
 
     if raw.len() < NONCE_LEN {
         return Err(AuthError::EncryptionError("blob too short".into()));
@@ -43,8 +43,8 @@ pub fn decrypt(key: &[u8; 32], hex_blob: &str) -> Result<Vec<u8>> {
     let (nonce_bytes, ciphertext) = raw.split_at(NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
 
-    let cipher = Aes256Gcm::new_from_slice(key)
-        .map_err(|e| AuthError::EncryptionError(e.to_string()))?;
+    let cipher =
+        Aes256Gcm::new_from_slice(key).map_err(|e| AuthError::EncryptionError(e.to_string()))?;
 
     let plaintext = cipher
         .decrypt(nonce, ciphertext)

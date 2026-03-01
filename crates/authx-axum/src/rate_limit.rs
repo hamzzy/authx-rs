@@ -25,7 +25,10 @@ pub struct RateLimitConfig {
 
 impl RateLimitConfig {
     pub fn new(max_requests: u32, window: Duration) -> Self {
-        Self { max_requests, window }
+        Self {
+            max_requests,
+            window,
+        }
     }
 }
 
@@ -39,7 +42,9 @@ struct RateLimitStore {
 
 impl RateLimitStore {
     fn new() -> Self {
-        Self { inner: Arc::new(Mutex::new(HashMap::new())) }
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     /// Returns `true` if the request is allowed, `false` if it should be rejected.
@@ -81,12 +86,15 @@ impl RateLimitStore {
 #[derive(Clone)]
 pub struct RateLimitLayer {
     config: RateLimitConfig,
-    store:  RateLimitStore,
+    store: RateLimitStore,
 }
 
 impl RateLimitLayer {
     pub fn new(config: RateLimitConfig) -> Self {
-        Self { config, store: RateLimitStore::new() }
+        Self {
+            config,
+            store: RateLimitStore::new(),
+        }
     }
 }
 
@@ -96,7 +104,7 @@ impl<Svc> Layer<Svc> for RateLimitLayer {
     fn layer(&self, inner: Svc) -> Self::Service {
         RateLimitService {
             config: self.config.clone(),
-            store:  self.store.clone(),
+            store: self.store.clone(),
             inner,
         }
     }
@@ -107,8 +115,8 @@ impl<Svc> Layer<Svc> for RateLimitLayer {
 #[derive(Clone)]
 pub struct RateLimitService<Svc> {
     config: RateLimitConfig,
-    store:  RateLimitStore,
-    inner:  Svc,
+    store: RateLimitStore,
+    inner: Svc,
 }
 
 impl<Svc, ReqBody> Service<axum::http::Request<ReqBody>> for RateLimitService<Svc>
@@ -118,8 +126,9 @@ where
     ReqBody: Send + 'static,
 {
     type Response = Response;
-    type Error    = Svc::Error;
-    type Future   = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, Svc::Error>> + Send>>;
+    type Error = Svc::Error;
+    type Future =
+        std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, Svc::Error>> + Send>>;
 
     fn poll_ready(
         &mut self,
@@ -129,8 +138,8 @@ where
     }
 
     fn call(&mut self, req: axum::http::Request<ReqBody>) -> Self::Future {
-        let config    = self.config.clone();
-        let store     = self.store.clone();
+        let config = self.config.clone();
+        let store = self.store.clone();
         let mut inner = self.inner.clone();
 
         Box::pin(async move {
@@ -188,14 +197,18 @@ mod tests {
 
     use super::{RateLimitConfig, RateLimitStore};
 
-    fn store() -> RateLimitStore { RateLimitStore::new() }
-    fn ip(s: &str) -> IpAddr    { IpAddr::from_str(s).unwrap() }
+    fn store() -> RateLimitStore {
+        RateLimitStore::new()
+    }
+    fn ip(s: &str) -> IpAddr {
+        IpAddr::from_str(s).unwrap()
+    }
 
     #[test]
     fn allows_up_to_max_requests() {
-        let s   = store();
+        let s = store();
         let cfg = RateLimitConfig::new(3, Duration::from_secs(60));
-        let a   = ip("1.2.3.4");
+        let a = ip("1.2.3.4");
         for _ in 0..3 {
             assert!(s.check(a, &cfg));
         }
@@ -203,31 +216,34 @@ mod tests {
 
     #[test]
     fn rejects_after_max_requests() {
-        let s   = store();
+        let s = store();
         let cfg = RateLimitConfig::new(3, Duration::from_secs(60));
-        let a   = ip("5.6.7.8");
-        for _ in 0..3 { s.check(a, &cfg); }
+        let a = ip("5.6.7.8");
+        for _ in 0..3 {
+            s.check(a, &cfg);
+        }
         assert!(!s.check(a, &cfg), "4th request must be rejected");
     }
 
     #[test]
     fn different_ips_are_independent() {
-        let s   = store();
+        let s = store();
         let cfg = RateLimitConfig::new(2, Duration::from_secs(60));
-        let a   = ip("10.0.0.1");
-        let b   = ip("10.0.0.2");
+        let a = ip("10.0.0.1");
+        let b = ip("10.0.0.2");
 
-        s.check(a, &cfg); s.check(a, &cfg);
+        s.check(a, &cfg);
+        s.check(a, &cfg);
         assert!(!s.check(a, &cfg), "a should be rate-limited");
-        assert!(s.check(b, &cfg),  "b is independent");
+        assert!(s.check(b, &cfg), "b is independent");
     }
 
     #[test]
     fn window_expiry_resets_counter() {
-        let s   = store();
+        let s = store();
         // 50 ms window — reliably shorter than the sleep below.
         let cfg = RateLimitConfig::new(1, Duration::from_millis(50));
-        let a   = ip("9.9.9.9");
+        let a = ip("9.9.9.9");
 
         s.check(a, &cfg); // consume quota
         assert!(!s.check(a, &cfg), "should be rejected inside window");

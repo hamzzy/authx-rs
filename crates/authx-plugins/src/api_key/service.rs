@@ -13,7 +13,7 @@ use authx_storage::ports::{ApiKeyRepository, UserRepository};
 /// Returned when an API key is first created — the `raw_key` is shown once only.
 #[derive(Debug)]
 pub struct ApiKeyResponse {
-    pub key:     ApiKey,
+    pub key: ApiKey,
     pub raw_key: String,
 }
 
@@ -35,10 +35,10 @@ where
     #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn create(
         &self,
-        user_id:    Uuid,
-        org_id:     Option<Uuid>,
-        name:       String,
-        scopes:     Vec<String>,
+        user_id: Uuid,
+        org_id: Option<Uuid>,
+        name: String,
+        scopes: Vec<String>,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<ApiKeyResponse> {
         // Verify user exists.
@@ -49,7 +49,7 @@ where
         let raw: [u8; 32] = rand::thread_rng().gen();
         let raw_key = hex::encode(raw);
         let key_hash = sha256_hex(raw_key.as_bytes());
-        let prefix   = raw_key[..8].to_owned();
+        let prefix = raw_key[..8].to_owned();
 
         let key = ApiKeyRepository::create(
             &self.storage,
@@ -106,6 +106,9 @@ where
         let now = Utc::now();
         ApiKeyRepository::touch_last_used(&self.storage, key.id, now).await?;
         tracing::info!(key_id = %key.id, user_id = %key.user_id, "api key authenticated");
-        Ok(ApiKey { last_used_at: Some(now), ..key })
+        Ok(ApiKey {
+            last_used_at: Some(now),
+            ..key
+        })
     }
 }

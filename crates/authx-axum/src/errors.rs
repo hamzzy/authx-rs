@@ -20,22 +20,26 @@ impl IntoResponse for AuthErrorResponse {
     fn into_response(self) -> Response {
         let err = &self.0;
         let (status, code) = match err {
-            AuthError::InvalidCredentials      => (StatusCode::UNAUTHORIZED,          "invalid_credentials"),
-            AuthError::UserNotFound            => (StatusCode::NOT_FOUND,             "user_not_found"),
-            AuthError::SessionNotFound         => (StatusCode::UNAUTHORIZED,          "session_not_found"),
-            AuthError::EmailTaken              => (StatusCode::CONFLICT,              "email_taken"),
-            AuthError::EmailNotVerified        => (StatusCode::FORBIDDEN,             "email_not_verified"),
-            AuthError::InvalidToken            => (StatusCode::UNAUTHORIZED,          "invalid_token"),
-            AuthError::AccountLocked           => (StatusCode::TOO_MANY_REQUESTS,     "account_locked"),
-            AuthError::WeakPassword            => (StatusCode::UNPROCESSABLE_ENTITY,  "weak_password"),
-            AuthError::Forbidden(_)            => (StatusCode::FORBIDDEN,             "forbidden"),
+            AuthError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "invalid_credentials"),
+            AuthError::UserNotFound => (StatusCode::NOT_FOUND, "user_not_found"),
+            AuthError::SessionNotFound => (StatusCode::UNAUTHORIZED, "session_not_found"),
+            AuthError::EmailTaken => (StatusCode::CONFLICT, "email_taken"),
+            AuthError::EmailNotVerified => (StatusCode::FORBIDDEN, "email_not_verified"),
+            AuthError::InvalidToken => (StatusCode::UNAUTHORIZED, "invalid_token"),
+            AuthError::AccountLocked => (StatusCode::TOO_MANY_REQUESTS, "account_locked"),
+            AuthError::WeakPassword => (StatusCode::UNPROCESSABLE_ENTITY, "weak_password"),
+            AuthError::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
             AuthError::HashError(_)
             | AuthError::EncryptionError(_)
             | AuthError::Internal(_)
-            | AuthError::Storage(_)            => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+            | AuthError::Storage(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
         };
 
         tracing::warn!(status = status.as_u16(), error = code, detail = %err);
-        (status, Json(json!({ "error": code, "message": err.to_string() }))).into_response()
+        (
+            status,
+            Json(json!({ "error": code, "message": err.to_string() })),
+        )
+            .into_response()
     }
 }

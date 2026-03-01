@@ -20,7 +20,7 @@ use authx_storage::ports::{CredentialRepository, UserRepository};
 ///
 /// Backup codes are SHA-256 hashed and stored in metadata as a JSON array.
 pub struct TotpService<S> {
-    storage:  S,
+    storage: S,
     app_name: Arc<str>,
 }
 
@@ -30,14 +30,14 @@ pub struct TotpSetup {
     /// Base32-encoded secret — store server-side and show once to user.
     pub secret_base32: String,
     /// `otpauth://totp/...` URI for QR code generation.
-    pub otpauth_uri:   String,
+    pub otpauth_uri: String,
     /// One-time backup codes (show to user, hash before storing).
-    pub backup_codes:  Vec<String>,
+    pub backup_codes: Vec<String>,
 }
 
 pub struct TotpVerifyRequest {
     pub user_id: Uuid,
-    pub code:    String,
+    pub code: String,
 }
 
 impl<S> TotpService<S>
@@ -45,7 +45,10 @@ where
     S: UserRepository + CredentialRepository + Clone + Send + Sync + 'static,
 {
     pub fn new(storage: S, app_name: impl Into<Arc<str>>) -> Self {
-        Self { storage, app_name: app_name.into() }
+        Self {
+            storage,
+            app_name: app_name.into(),
+        }
     }
 
     /// Generate a new TOTP secret and backup codes for a user.
@@ -65,23 +68,25 @@ where
         let backup_codes = generate_backup_codes(8);
 
         tracing::info!(user_id = %user_id, "totp setup initiated");
-        Ok(TotpSetup { secret_base32, otpauth_uri, backup_codes })
+        Ok(TotpSetup {
+            secret_base32,
+            otpauth_uri,
+            backup_codes,
+        })
     }
 
     /// Confirm the user can produce a valid code, then persist the secret.
     #[instrument(skip(self, setup, code), fields(user_id = %user_id))]
-    pub async fn confirm_setup(
-        &self,
-        user_id: Uuid,
-        setup:   &TotpSetup,
-        code:    &str,
-    ) -> Result<()> {
+    pub async fn confirm_setup(&self, user_id: Uuid, setup: &TotpSetup, code: &str) -> Result<()> {
         let user = UserRepository::find_by_id(&self.storage, user_id)
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
         let totp = build_totp(&setup.secret_base32, &user.email, &self.app_name)?;
-        if !totp.check_current(code).map_err(|_| AuthError::InvalidToken)? {
+        if !totp
+            .check_current(code)
+            .map_err(|_| AuthError::InvalidToken)?
+        {
             return Err(AuthError::InvalidToken);
         }
 
@@ -95,9 +100,9 @@ where
             &self.storage,
             CreateCredential {
                 user_id,
-                kind:            CredentialKind::Passkey,
+                kind: CredentialKind::Passkey,
                 credential_hash: setup.secret_base32.clone(),
-                metadata:        Some(serde_json::json!({ "backup_codes": hashed_codes })),
+                metadata: Some(serde_json::json!({ "backup_codes": hashed_codes })),
             },
         )
         .await?;
@@ -122,7 +127,10 @@ where
         .ok_or(AuthError::InvalidToken)?;
 
         let totp = build_totp(&cred.credential_hash, &user.email, &self.app_name)?;
-        if totp.check_current(&req.code).map_err(|_| AuthError::InvalidToken)? {
+        if totp
+            .check_current(&req.code)
+            .map_err(|_| AuthError::InvalidToken)?
+        {
             tracing::info!(user_id = %req.user_id, "totp verified");
             return Ok(());
         }
@@ -192,7 +200,11 @@ fn generate_backup_codes(count: usize) -> Vec<String> {
             (0..8)
                 .map(|_| {
                     let idx = rng.gen_range(0..36u8);
-                    (if idx < 10 { b'0' + idx } else { b'A' + idx - 10 }) as char
+                    (if idx < 10 {
+                        b'0' + idx
+                    } else {
+                        b'A' + idx - 10
+                    }) as char
                 })
                 .collect::<String>()
         })

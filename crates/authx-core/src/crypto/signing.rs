@@ -8,12 +8,12 @@ use crate::error::{AuthError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub:  String,
-    pub exp:  i64,
-    pub iat:  i64,
-    pub jti:  String,
+    pub sub: String,
+    pub exp: i64,
+    pub iat: i64,
+    pub jti: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub org:  Option<String>,
+    pub org: Option<String>,
     #[serde(flatten)]
     pub extra: serde_json::Value,
 }
@@ -33,14 +33,19 @@ impl TokenSigner {
     }
 
     #[instrument(skip(self, extra))]
-    pub fn sign(&self, subject: Uuid, ttl_seconds: i64, extra: serde_json::Value) -> Result<String> {
+    pub fn sign(
+        &self,
+        subject: Uuid,
+        ttl_seconds: i64,
+        extra: serde_json::Value,
+    ) -> Result<String> {
         let now = Utc::now().timestamp();
         let claims = Claims {
-            sub:   subject.to_string(),
-            exp:   now + ttl_seconds,
-            iat:   now,
-            jti:   Uuid::new_v4().to_string(),
-            org:   None,
+            sub: subject.to_string(),
+            exp: now + ttl_seconds,
+            iat: now,
+            jti: Uuid::new_v4().to_string(),
+            org: None,
             extra,
         };
         let token = encode(&Header::new(Algorithm::EdDSA), &claims, &self.encoding)

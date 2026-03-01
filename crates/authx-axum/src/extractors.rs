@@ -59,7 +59,7 @@ impl IntoResponse for AuthRejection {
     fn into_response(self) -> axum::response::Response {
         let (status, msg) = match self {
             AuthRejection::Unauthenticated => (StatusCode::UNAUTHORIZED, "unauthenticated"),
-            AuthRejection::Forbidden       => (StatusCode::FORBIDDEN,    "forbidden"),
+            AuthRejection::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
         };
         (status, Json(json!({ "error": msg }))).into_response()
     }

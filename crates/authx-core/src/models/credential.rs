@@ -11,17 +11,17 @@ pub enum CredentialKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credential {
-    pub id:              Uuid,
-    pub user_id:         Uuid,
-    pub kind:            CredentialKind,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub kind: CredentialKind,
     pub credential_hash: String,
-    pub metadata:        serde_json::Value,
+    pub metadata: serde_json::Value,
 }
 
 #[derive(Debug, Clone)]
 pub struct CreateCredential {
-    pub user_id:         Uuid,
-    pub kind:            CredentialKind,
+    pub user_id: Uuid,
+    pub kind: CredentialKind,
     pub credential_hash: String,
-    pub metadata:        Option<serde_json::Value>,
+    pub metadata: Option<serde_json::Value>,
 }

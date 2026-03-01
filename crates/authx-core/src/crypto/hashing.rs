@@ -8,9 +8,12 @@ use tracing::instrument;
 use crate::error::{AuthError, Result};
 
 fn argon2() -> Result<Argon2<'static>> {
-    let params = Params::new(65536, 3, 4, None)
-        .map_err(|e| AuthError::HashError(e.to_string()))?;
-    Ok(Argon2::new(argon2::Algorithm::Argon2id, Version::V0x13, params))
+    let params = Params::new(65536, 3, 4, None).map_err(|e| AuthError::HashError(e.to_string()))?;
+    Ok(Argon2::new(
+        argon2::Algorithm::Argon2id,
+        Version::V0x13,
+        params,
+    ))
 }
 
 #[instrument(skip(password))]
@@ -27,8 +30,7 @@ pub fn hash_password(password: &str) -> Result<String> {
 
 #[instrument(skip(password, hash))]
 pub fn verify_password(hash: &str, password: &str) -> Result<bool> {
-    let parsed = PasswordHash::new(hash)
-        .map_err(|e| AuthError::HashError(e.to_string()))?;
+    let parsed = PasswordHash::new(hash).map_err(|e| AuthError::HashError(e.to_string()))?;
 
     let ok = argon2()?
         .verify_password(password.as_bytes(), &parsed)

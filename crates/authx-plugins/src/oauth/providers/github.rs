@@ -6,24 +6,26 @@ use authx_core::error::{AuthError, Result};
 use super::{OAuthProvider, OAuthTokens, OAuthUserInfo};
 
 pub struct GitHubProvider {
-    client_id:     String,
+    client_id: String,
     client_secret: String,
-    http:          reqwest::Client,
+    http: reqwest::Client,
 }
 
 impl GitHubProvider {
     pub fn new(client_id: impl Into<String>, client_secret: impl Into<String>) -> Self {
         Self {
-            client_id:     client_id.into(),
+            client_id: client_id.into(),
             client_secret: client_secret.into(),
-            http:          reqwest::Client::new(),
+            http: reqwest::Client::new(),
         }
     }
 }
 
 #[async_trait]
 impl OAuthProvider for GitHubProvider {
-    fn name(&self) -> &'static str { "github" }
+    fn name(&self) -> &'static str {
+        "github"
+    }
 
     fn authorization_url(&self, state: &str, pkce_challenge: &str) -> String {
         format!(
@@ -40,16 +42,21 @@ impl OAuthProvider for GitHubProvider {
     }
 
     #[instrument(skip(self, code, pkce_verifier))]
-    async fn exchange_code(&self, code: &str, pkce_verifier: &str, redirect_uri: &str) -> Result<OAuthTokens> {
+    async fn exchange_code(
+        &self,
+        code: &str,
+        pkce_verifier: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens> {
         let res = self
             .http
             .post("https://github.com/login/oauth/access_token")
             .header("Accept", "application/json")
             .form(&[
-                ("code",          code),
-                ("client_id",     &self.client_id),
+                ("code", code),
+                ("client_id", &self.client_id),
                 ("client_secret", &self.client_secret),
-                ("redirect_uri",  redirect_uri),
+                ("redirect_uri", redirect_uri),
                 ("code_verifier", pkce_verifier),
             ])
             .send()
@@ -58,7 +65,9 @@ impl OAuthProvider for GitHubProvider {
 
         if !res.status().is_success() {
             let body = res.text().await.unwrap_or_default();
-            return Err(AuthError::Internal(format!("github token exchange error: {body}")));
+            return Err(AuthError::Internal(format!(
+                "github token exchange error: {body}"
+            )));
         }
 
         let json: serde_json::Value = res
@@ -72,9 +81,9 @@ impl OAuthProvider for GitHubProvider {
 
         tracing::debug!("github token exchange succeeded");
         Ok(OAuthTokens {
-            access_token:  json["access_token"].as_str().unwrap_or("").to_owned(),
+            access_token: json["access_token"].as_str().unwrap_or("").to_owned(),
             refresh_token: json["refresh_token"].as_str().map(ToOwned::to_owned),
-            expires_in:    json["expires_in"].as_u64(),
+            expires_in: json["expires_in"].as_u64(),
         })
     }
 
@@ -98,7 +107,7 @@ impl OAuthProvider for GitHubProvider {
             .await
             .map_err(|e| AuthError::Internal(format!("github user json: {e}")))?;
 
-        let id   = user_json["id"].as_u64().unwrap_or(0).to_string();
+        let id = user_json["id"].as_u64().unwrap_or(0).to_string();
         let name = user_json["name"].as_str().map(ToOwned::to_owned);
 
         // Fetch primary verified email.
@@ -118,13 +127,19 @@ impl OAuthProvider for GitHubProvider {
 
         let email = emails
             .iter()
-            .find(|e| e["primary"].as_bool().unwrap_or(false) && e["verified"].as_bool().unwrap_or(false))
+            .find(|e| {
+                e["primary"].as_bool().unwrap_or(false) && e["verified"].as_bool().unwrap_or(false)
+            })
             .and_then(|e| e["email"].as_str())
             .or_else(|| user_json["email"].as_str())
             .ok_or_else(|| AuthError::Internal("github: no verified email found".into()))?
             .to_owned();
 
         tracing::debug!(provider = "github", "user info fetched");
-        Ok(OAuthUserInfo { provider_user_id: id, email, name })
+        Ok(OAuthUserInfo {
+            provider_user_id: id,
+            email,
+            name,
+        })
     }
 }

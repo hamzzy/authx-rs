@@ -1,8 +1,7 @@
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use chrono::Utc;
 use tracing::instrument;
-
 
 use authx_core::{
     crypto::sha256_hex,
@@ -14,19 +13,19 @@ use authx_storage::ports::{CredentialRepository, SessionRepository, UserReposito
 
 #[derive(Debug)]
 pub struct UsernameAuthResponse {
-    pub user:    User,
+    pub user: User,
     pub session: Session,
-    pub token:   String,
+    pub token: String,
 }
 
 /// Username + password authentication service.
 ///
 /// Analogous to `EmailPasswordService` but lookups are by username instead of email.
 pub struct UsernameService<S> {
-    storage:          S,
-    events:           EventBus,
+    storage: S,
+    events: EventBus,
     session_ttl_secs: i64,
-    argon2:           Argon2<'static>,
+    argon2: Argon2<'static>,
 }
 
 impl<S> UsernameService<S>
@@ -60,7 +59,7 @@ where
         let user = UserRepository::create(
             &self.storage,
             CreateUser {
-                email:    email.to_owned(),
+                email: email.to_owned(),
                 username: Some(username.to_owned()),
                 metadata: None,
             },
@@ -70,22 +69,28 @@ where
         CredentialRepository::create(
             &self.storage,
             CreateCredential {
-                user_id:         user.id,
-                kind:            CredentialKind::Password,
+                user_id: user.id,
+                kind: CredentialKind::Password,
                 credential_hash: hash,
-                metadata:        None,
+                metadata: None,
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::UserCreated { user: user.clone() });
+        self.events
+            .emit(AuthEvent::UserCreated { user: user.clone() });
         tracing::info!(user_id = %user.id, username = %username, "username sign-up complete");
         Ok(user)
     }
 
     /// Sign in with username + password, creating a new session on success.
     #[instrument(skip(self, password), fields(username = %username, ip = %ip))]
-    pub async fn sign_in(&self, username: &str, password: &str, ip: &str) -> Result<UsernameAuthResponse> {
+    pub async fn sign_in(
+        &self,
+        username: &str,
+        password: &str,
+        ip: &str,
+    ) -> Result<UsernameAuthResponse> {
         let user = UserRepository::find_by_username(&self.storage, username)
             .await?
             .ok_or(AuthError::InvalidCredentials)?;
@@ -96,30 +101,41 @@ where
 
         let parsed = PasswordHash::new(&hash_str)
             .map_err(|e| AuthError::Internal(format!("argon2 parse: {e}")))?;
-        if self.argon2.verify_password(password.as_bytes(), &parsed).is_err() {
+        if self
+            .argon2
+            .verify_password(password.as_bytes(), &parsed)
+            .is_err()
+        {
             tracing::warn!(username = %username, "username sign-in: wrong password");
             return Err(AuthError::InvalidCredentials);
         }
 
         let raw: [u8; 32] = rand::Rng::gen(&mut rand::thread_rng());
-        let raw_str    = hex::encode(raw);
+        let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
 
         let session = SessionRepository::create(
             &self.storage,
             CreateSession {
-                user_id:     user.id,
+                user_id: user.id,
                 token_hash,
                 device_info: serde_json::Value::Null,
-                ip_address:  ip.to_owned(),
-                org_id:      None,
-                expires_at:  Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                ip_address: ip.to_owned(),
+                org_id: None,
+                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
         .await?;
 
-        self.events.emit(AuthEvent::SignIn { user: user.clone(), session: session.clone() });
+        self.events.emit(AuthEvent::SignIn {
+            user: user.clone(),
+            session: session.clone(),
+        });
         tracing::info!(user_id = %user.id, "username sign-in complete");
-        Ok(UsernameAuthResponse { user, session, token: raw_str })
+        Ok(UsernameAuthResponse {
+            user,
+            session,
+            token: raw_str,
+        })
     }
 }
