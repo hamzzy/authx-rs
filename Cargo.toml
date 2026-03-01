@@ -1,0 +1,61 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT"
+repository  = "https://github.com/authx/authx-rs"
+
+[workspace.dependencies]
+# Async
+tokio        = { version = "1",    features = ["full"] }
+async-trait  = "0.1"
+
+# HTTP
+axum         = { version = "0.7" }
+axum-extra   = { version = "0.9", features = ["typed-header"] }
+tower        = { version = "0.5" }
+tower-http   = { version = "0.6", features = ["trace", "cors"] }
+http         = "1"
+
+# Crypto
+argon2       = { version = "0.5", features = ["std"] }
+aes-gcm      = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand         = "0.8"
+sha2         = "0.10"
+hex          = "0.4"
+
+# JWT
+jsonwebtoken = "9"
+
+# Serialization
+serde        = { version = "1", features = ["derive"] }
+serde_json   = "1"
+uuid         = { version = "1", features = ["v4", "serde"] }
+chrono       = { version = "0.4", features = ["serde"] }
+
+# Database
+sqlx         = { version = "0.8", features = ["runtime-tokio", "postgres", "uuid", "macros", "migrate", "chrono"] }
+
+# Error handling
+thiserror    = "1"
+anyhow       = "1"
+
+# Observability
+tracing      = "0.1"
+
+# HTTP client (OAuth)
+reqwest      = { version = "0.12", features = ["json"] }
+
+# Internal crates
+authx-core    = { path = "crates/authx-core" }
+authx-storage = { path = "crates/authx-storage" }
+authx-plugins = { path = "crates/authx-plugins" }
+authx-axum    = { path = "crates/authx-axum" }
+
+[profile.release]
+lto           = true
+codegen-units = 1

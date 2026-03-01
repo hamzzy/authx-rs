@@ -1,0 +1,25 @@
+[package]
+name    = "authx-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio.workspace        = true
+async-trait.workspace  = true
+serde.workspace        = true
+serde_json.workspace   = true
+uuid.workspace         = true
+chrono.workspace       = true
+thiserror.workspace    = true
+tracing.workspace      = true
+argon2.workspace       = true
+aes-gcm.workspace      = true
+ed25519-dalek.workspace = true
+rand.workspace         = true
+sha2.workspace         = true
+hex.workspace          = true
+jsonwebtoken.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
