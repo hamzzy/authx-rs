@@ -4,8 +4,8 @@ use uuid::Uuid;
 use authx_core::{
     error::Result,
     models::{
-        CreateCredential, CreateOrg, CreateSession, CreateUser, Credential, CredentialKind,
-        Membership, Organization, Session, UpdateUser, User,
+        AuditLog, CreateAuditLog, CreateCredential, CreateOrg, CreateSession, CreateUser,
+        Credential, CredentialKind, Membership, Organization, Session, UpdateUser, User,
     },
 };
 
@@ -45,13 +45,20 @@ pub trait OrgRepository: Send + Sync + 'static {
     async fn get_members(&self, org_id: Uuid) -> Result<Vec<Membership>>;
 }
 
+#[async_trait]
+pub trait AuditLogRepository: Send + Sync + 'static {
+    async fn append(&self, entry: CreateAuditLog) -> Result<AuditLog>;
+    async fn find_by_user(&self, user_id: Uuid, limit: u32) -> Result<Vec<AuditLog>>;
+    async fn find_by_org(&self, org_id: Uuid, limit: u32)   -> Result<Vec<AuditLog>>;
+}
+
 /// Composite adapter trait — storage backends implement this.
 pub trait StorageAdapter:
-    UserRepository + SessionRepository + CredentialRepository + OrgRepository
+    UserRepository + SessionRepository + CredentialRepository + OrgRepository + AuditLogRepository
     + Clone + Send + Sync + 'static
 {}
 
 impl<T> StorageAdapter for T where
-    T: UserRepository + SessionRepository + CredentialRepository + OrgRepository
+    T: UserRepository + SessionRepository + CredentialRepository + OrgRepository + AuditLogRepository
        + Clone + Send + Sync + 'static
 {}

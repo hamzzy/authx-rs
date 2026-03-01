@@ -1,4 +1,6 @@
-use authx_core::{error::AuthError, events::EventBus};
+use std::time::Duration;
+
+use authx_core::{brute_force::LockoutConfig, error::AuthError, events::EventBus};
 use authx_storage::memory::MemoryStore;
 
 use super::service::{EmailPasswordService, SignInRequest, SignUpRequest};
@@ -212,4 +214,121 @@ async fn list_sessions_returns_all_active() {
     assert!(ids.contains(&r1.session.id));
     assert!(ids.contains(&r2.session.id));
     assert!(ids.contains(&r3.session.id));
+}
+
+// ── Brute-force lockout ───────────────────────────────────────────────────────
+
+fn make_service_with_lockout(max_failures: u32) -> EmailPasswordService<MemoryStore> {
+    let cfg = LockoutConfig::new(max_failures, Duration::from_secs(60));
+    EmailPasswordService::new(MemoryStore::new(), EventBus::new(), 8, 3600)
+        .with_lockout(cfg)
+}
+
+#[tokio::test]
+async fn lockout_triggers_after_max_failures() {
+    let svc = make_service_with_lockout(3);
+
+    svc.sign_up(SignUpRequest {
+        email:    "grace@example.com".into(),
+        password: "correct-pass!".into(),
+        ip:       "127.0.0.1".into(),
+    })
+    .await
+    .unwrap();
+
+    let bad_attempt = || SignInRequest {
+        email:    "grace@example.com".into(),
+        password: "wrong".into(),
+        ip:       "127.0.0.1".into(),
+    };
+
+    // Three failures should trigger lockout.
+    for _ in 0..3 {
+        let _ = svc.sign_in(bad_attempt()).await;
+    }
+
+    let err = svc.sign_in(bad_attempt()).await.expect_err("expected lockout");
+    assert!(matches!(err, AuthError::AccountLocked), "got: {err:?}");
+}
+
+#[tokio::test]
+async fn lockout_clears_on_success() {
+    let svc = make_service_with_lockout(3);
+
+    svc.sign_up(SignUpRequest {
+        email:    "henry@example.com".into(),
+        password: "correct-pass!".into(),
+        ip:       "127.0.0.1".into(),
+    })
+    .await
+    .unwrap();
+
+    // Two failures — not yet locked.
+    for _ in 0..2 {
+        let _ = svc
+            .sign_in(SignInRequest {
+                email:    "henry@example.com".into(),
+                password: "wrong".into(),
+                ip:       "127.0.0.1".into(),
+            })
+            .await;
+    }
+
+    // Successful sign-in resets counter.
+    svc.sign_in(SignInRequest {
+        email:    "henry@example.com".into(),
+        password: "correct-pass!".into(),
+        ip:       "127.0.0.1".into(),
+    })
+    .await
+    .expect("sign-in should succeed after counter reset");
+
+    // Fail twice more — should NOT be locked (counter was cleared).
+    for _ in 0..2 {
+        let _ = svc
+            .sign_in(SignInRequest {
+                email:    "henry@example.com".into(),
+                password: "wrong".into(),
+                ip:       "127.0.0.1".into(),
+            })
+            .await;
+    }
+
+    // Still not locked — only 2 failures since last success.
+    let result = svc
+        .sign_in(SignInRequest {
+            email:    "henry@example.com".into(),
+            password: "correct-pass!".into(),
+            ip:       "127.0.0.1".into(),
+        })
+        .await;
+    assert!(result.is_ok(), "should not be locked: {result:?}");
+}
+
+#[tokio::test]
+async fn no_lockout_without_config() {
+    // Default service (no .with_lockout) — error is always InvalidCredentials,
+    // never AccountLocked. Keep iteration count low to avoid Argon2 slowness.
+    let svc = make_service();
+
+    svc.sign_up(SignUpRequest {
+        email:    "ivan@example.com".into(),
+        password: "correct-pass!".into(),
+        ip:       "127.0.0.1".into(),
+    })
+    .await
+    .unwrap();
+
+    for _ in 0..3 {
+        let err = svc
+            .sign_in(SignInRequest {
+                email:    "ivan@example.com".into(),
+                password: "wrong".into(),
+                ip:       "127.0.0.1".into(),
+            })
+            .await
+            .expect_err("expected error");
+
+        assert!(matches!(err, AuthError::InvalidCredentials), "got: {err:?}");
+    }
 }

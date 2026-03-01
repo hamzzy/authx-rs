@@ -4,6 +4,7 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use authx_core::{
+    brute_force::{LockoutConfig, LoginAttemptTracker},
     crypto::{hash_password, sha256_hex, verify_password},
     error::{AuthError, Result},
     events::{AuthEvent, EventBus},
@@ -37,6 +38,7 @@ pub struct EmailPasswordService<S> {
     events:           EventBus,
     min_password_len: usize,
     session_ttl_secs: i64,
+    lockout:          Option<LoginAttemptTracker>,
 }
 
 impl<S> EmailPasswordService<S>
@@ -44,7 +46,13 @@ where
     S: UserRepository + SessionRepository + CredentialRepository + Clone + Send + Sync + 'static,
 {
     pub fn new(storage: S, events: EventBus, min_password_len: usize, session_ttl_secs: i64) -> Self {
-        Self { storage, events, min_password_len, session_ttl_secs }
+        Self { storage, events, min_password_len, session_ttl_secs, lockout: None }
+    }
+
+    /// Enable brute-force lockout with the given configuration.
+    pub fn with_lockout(mut self, cfg: LockoutConfig) -> Self {
+        self.lockout = Some(LoginAttemptTracker::new(cfg));
+        self
     }
 
     #[instrument(skip(self, req), fields(email = %req.email))]
@@ -86,6 +94,14 @@ where
 
     #[instrument(skip(self, req), fields(email = %req.email))]
     pub async fn sign_in(&self, req: SignInRequest) -> Result<AuthResponse> {
+        // Lockout check before touching storage — avoids timing leak.
+        if let Some(tracker) = &self.lockout {
+            if tracker.is_locked(&req.email) {
+                tracing::warn!(email = %req.email, "sign-in blocked: account locked");
+                return Err(AuthError::AccountLocked);
+            }
+        }
+
         let user = UserRepository::find_by_email(&self.storage, &req.email)
             .await?
             .ok_or(AuthError::InvalidCredentials)?;
@@ -96,7 +112,15 @@ where
 
         if !verify_password(&hash, &req.password)? {
             tracing::warn!(email = %req.email, "wrong password");
+            if let Some(tracker) = &self.lockout {
+                tracker.record_failure(&req.email);
+            }
             return Err(AuthError::InvalidCredentials);
+        }
+
+        // Success — clear the failure counter.
+        if let Some(tracker) = &self.lockout {
+            tracker.record_success(&req.email);
         }
 
         let raw_token  = generate_token();

@@ -26,6 +26,7 @@ impl IntoResponse for AuthErrorResponse {
             AuthError::EmailTaken              => (StatusCode::CONFLICT,              "email_taken"),
             AuthError::EmailNotVerified        => (StatusCode::FORBIDDEN,             "email_not_verified"),
             AuthError::InvalidToken            => (StatusCode::UNAUTHORIZED,          "invalid_token"),
+            AuthError::AccountLocked           => (StatusCode::TOO_MANY_REQUESTS,     "account_locked"),
             AuthError::Forbidden(_)            => (StatusCode::FORBIDDEN,             "forbidden"),
             AuthError::HashError(_)
             | AuthError::EncryptionError(_)

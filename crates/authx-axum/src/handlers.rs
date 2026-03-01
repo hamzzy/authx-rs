@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use uuid::Uuid;
 
-use authx_core::{error::AuthError, models::Session};
+use authx_core::{brute_force::LockoutConfig, error::AuthError, models::Session};
 use authx_plugins::email_password::{EmailPasswordService, SignInRequest, SignUpRequest};
 use authx_storage::ports::{CredentialRepository, SessionRepository, UserRepository};
 
@@ -36,13 +36,23 @@ where
     pub fn new(storage: S, session_ttl_secs: i64, secure_cookies: bool) -> Self {
         use authx_core::events::EventBus;
         let events  = EventBus::new();
-        let min_len = 8;
-        let service = Arc::new(EmailPasswordService::new(
-            storage,
-            events,
-            min_len,
-            session_ttl_secs,
-        ));
+        let service = Arc::new(EmailPasswordService::new(storage, events, 8, session_ttl_secs));
+        Self { service, session_ttl_secs, secure_cookies }
+    }
+
+    /// Same as [`new`] but with brute-force lockout enabled.
+    pub fn new_with_lockout(
+        storage: S,
+        session_ttl_secs: i64,
+        secure_cookies: bool,
+        lockout: LockoutConfig,
+    ) -> Self {
+        use authx_core::events::EventBus;
+        let events  = EventBus::new();
+        let service = Arc::new(
+            EmailPasswordService::new(storage, events, 8, session_ttl_secs)
+                .with_lockout(lockout),
+        );
         Self { service, session_ttl_secs, secure_cookies }
     }
 

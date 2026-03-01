@@ -7,6 +7,8 @@
 ///  - Cookie-based session management (httpOnly, SameSite=Lax)
 ///  - Protected routes via RequireAuth extractor
 ///  - Per-device session listing and revocation
+///  - Per-IP rate limiting on auth endpoints
+///  - Brute-force / account lockout after repeated failures
 ///
 /// Run:
 ///   cargo run -p axum-app
@@ -36,6 +38,8 @@
 ///
 ///   # Protected app route
 ///   curl -s -b /tmp/jar http://localhost:3000/me
+use std::time::Duration;
+
 use axum::{
     middleware,
     response::Json,
@@ -45,7 +49,11 @@ use axum::{
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use authx_axum::{csrf_middleware, AuthxState, CsrfConfig, RequireAuth, SessionLayer};
+use authx_axum::{
+    csrf_middleware, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer, RequireAuth,
+    SessionLayer,
+};
+use authx_core::brute_force::LockoutConfig;
 use authx_storage::MemoryStore;
 
 #[tokio::main]
@@ -58,16 +66,26 @@ async fn main() {
     let store  = MemoryStore::new();
     let secure = false; // set true in production (HTTPS required)
 
-    let authx_state = AuthxState::new(
+    // 5 failures within 15 minutes triggers lockout.
+    let lockout_cfg = LockoutConfig::new(5, Duration::from_secs(60 * 15));
+
+    let authx_state = AuthxState::new_with_lockout(
         store.clone(),
         60 * 60 * 24 * 30, // 30-day sessions
         secure,
+        lockout_cfg,
     );
 
     let csrf_config = CsrfConfig::new(["http://localhost:3000", "https://yourdomain.com"]);
 
+    // 20 requests per minute per IP on auth routes.
+    let auth_rate_limit = RateLimitLayer::new(
+        RateLimitConfig::new(20, Duration::from_secs(60))
+    );
+
     let auth_router = authx_state
         .router()
+        .layer(auth_rate_limit)
         .route_layer(middleware::from_fn_with_state(csrf_config, csrf_middleware));
 
     let app = Router::new()

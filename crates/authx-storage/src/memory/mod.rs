@@ -11,18 +11,19 @@ use uuid::Uuid;
 use authx_core::{
     error::{AuthError, Result, StorageError},
     models::{
-        CreateCredential, CreateOrg, CreateSession, CreateUser, Credential, CredentialKind,
-        Membership, Organization, Role, Session, UpdateUser, User,
+        AuditLog, CreateAuditLog, CreateCredential, CreateOrg, CreateSession, CreateUser,
+        Credential, CredentialKind, Membership, Organization, Role, Session, UpdateUser, User,
     },
 };
 
-use crate::ports::{CredentialRepository, OrgRepository, SessionRepository, UserRepository};
+use crate::ports::{AuditLogRepository, CredentialRepository, OrgRepository, SessionRepository, UserRepository};
 
 #[derive(Clone, Default)]
 pub struct MemoryStore {
     users:       Arc<RwLock<HashMap<Uuid, User>>>,
     sessions:    Arc<RwLock<HashMap<Uuid, Session>>>,
     credentials: Arc<RwLock<Vec<Credential>>>,
+    audit_logs:  Arc<RwLock<Vec<AuditLog>>>,
     orgs:        Arc<RwLock<HashMap<Uuid, Organization>>>,
     roles:       Arc<RwLock<HashMap<Uuid, Role>>>,
     memberships: Arc<RwLock<Vec<Membership>>>,
@@ -255,6 +256,49 @@ impl OrgRepository for MemoryStore {
             .unwrap()
             .iter()
             .filter(|m| m.org_id == org_id)
+            .cloned()
+            .collect())
+    }
+}
+
+#[async_trait]
+impl AuditLogRepository for MemoryStore {
+    async fn append(&self, entry: CreateAuditLog) -> Result<AuditLog> {
+        let log = AuditLog {
+            id:            Uuid::new_v4(),
+            user_id:       entry.user_id,
+            org_id:        entry.org_id,
+            action:        entry.action,
+            resource_type: entry.resource_type,
+            resource_id:   entry.resource_id,
+            ip_address:    entry.ip_address,
+            metadata:      entry.metadata.unwrap_or(serde_json::Value::Null),
+            created_at:    Utc::now(),
+        };
+        self.audit_logs.write().unwrap().push(log.clone());
+        Ok(log)
+    }
+
+    async fn find_by_user(&self, user_id: Uuid, limit: u32) -> Result<Vec<AuditLog>> {
+        Ok(self
+            .audit_logs
+            .read()
+            .unwrap()
+            .iter()
+            .filter(|l| l.user_id == Some(user_id))
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
+
+    async fn find_by_org(&self, org_id: Uuid, limit: u32) -> Result<Vec<AuditLog>> {
+        Ok(self
+            .audit_logs
+            .read()
+            .unwrap()
+            .iter()
+            .filter(|l| l.org_id == Some(org_id))
+            .take(limit as usize)
             .cloned()
             .collect())
     }

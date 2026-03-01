@@ -1,8 +1,13 @@
+pub mod audit_logger;
 pub mod memory;
 pub mod ports;
 
 #[cfg(feature = "sqlx-postgres")]
 pub mod sqlx;
 
+pub use audit_logger::AuditLogger;
 pub use memory::MemoryStore;
-pub use ports::{CredentialRepository, OrgRepository, SessionRepository, StorageAdapter, UserRepository};
+pub use ports::{AuditLogRepository, CredentialRepository, OrgRepository, SessionRepository, StorageAdapter, UserRepository};
+
+#[cfg(feature = "sqlx-postgres")]
+pub use self::sqlx::PostgresStore;
