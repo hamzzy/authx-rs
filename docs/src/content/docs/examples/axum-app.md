@@ -8,7 +8,7 @@ The `examples/axum-app` crate is a complete, runnable demo showing every authx-r
 ## Running the example
 
 ```bash
-git clone https://github.com/authx/authx-rs
+git clone https://github.com/hamzzy/authx-rs
 cd authx-rs
 cargo run -p axum-app
 ```

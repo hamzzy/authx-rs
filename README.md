@@ -302,12 +302,3 @@ cargo test --workspace
 68 tests across all crates. No network or database required — storage tests use `MemoryStore`.
 
 ---
-
-## Roadmap
-
-- [ ] OAuth providers (Google, GitHub, Apple, Discord, Microsoft)
-- [ ] API key plugin
-- [ ] WebAuthn / Passkey plugin
-- [ ] Redis-backed rate limiting and token store
-- [ ] Organization invitation flow
-- [ ] Standalone binary mode (auth server)

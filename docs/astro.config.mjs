@@ -13,10 +13,10 @@ export default defineConfig({
         replacesTitle: false,
       },
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/authx/authx-rs' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/hamzzy/authx-rs' },
       ],
       editLink: {
-        baseUrl: 'https://github.com/authx/authx-rs/edit/main/docs/',
+        baseUrl: 'https://github.com/hamzzy/authx-rs/edit/main/docs/',
       },
       customCss: ['./src/styles/custom.css'],
       sidebar: [

@@ -11,10 +11,10 @@ import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
    ```toml title="Cargo.toml"
    [dependencies]
-   authx-core    = { git = "https://github.com/authx/authx-rs" }
-   authx-storage = { git = "https://github.com/authx/authx-rs" }
-   authx-plugins = { git = "https://github.com/authx/authx-rs" }
-   authx-axum    = { git = "https://github.com/authx/authx-rs" }
+   authx-core    = { git = "https://github.com/hamzzy/authx-rs" }
+   authx-storage = { git = "https://github.com/hamzzy/authx-rs" }
+   authx-plugins = { git = "https://github.com/hamzzy/authx-rs" }
+   authx-axum    = { git = "https://github.com/hamzzy/authx-rs" }
 
    axum              = "0.7"
    tokio             = { version = "1", features = ["full"] }
