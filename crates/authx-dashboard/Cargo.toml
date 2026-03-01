@@ -1,0 +1,20 @@
+[package]
+name    = "authx-dashboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Embedded admin dashboard for authx-rs"
+
+[dependencies]
+authx-core    = { workspace = true }
+authx-storage = { workspace = true }
+authx-plugins = { workspace = true }
+authx-axum    = { workspace = true }
+
+tokio      = { workspace = true }
+axum       = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+chrono     = { workspace = true }
+tracing    = { workspace = true }

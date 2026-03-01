@@ -108,7 +108,7 @@ where
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         if !is_guest {
-            return Err(AuthError::Forbidden);
+            return Err(AuthError::Forbidden("not a guest account".into()));
         }
 
         if password.len() < 8 {

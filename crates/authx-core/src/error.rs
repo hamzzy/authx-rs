@@ -29,6 +29,9 @@ pub enum AuthError {
     #[error("account locked: too many failed attempts, try again later")]
     AccountLocked,
 
+    #[error("password too weak")]
+    WeakPassword,
+
     #[error("access denied: {0}")]
     Forbidden(String),
 

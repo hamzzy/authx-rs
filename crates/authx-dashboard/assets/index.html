@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>authx Admin Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2a2d3e;
+      --accent:    #6366f1;
+      --accent-h:  #818cf8;
+      --danger:    #ef4444;
+      --success:   #22c55e;
+      --muted:     #6b7280;
+      --text:      #f3f4f6;
+      --text-dim:  #9ca3af;
+      --radius:    8px;
+      --font:      'Inter', system-ui, sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Auth overlay ─────────────────────────────────────── */
+    #auth-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    #auth-overlay.hidden { display: none; }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      width: 360px;
+    }
+    .auth-card h2 { margin-bottom: 1.25rem; font-size: 1.25rem; }
+    .auth-card p  { color: var(--text-dim); font-size: .875rem; margin-bottom: 1.5rem; }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: .875rem 1.5rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; }
+    header .badge {
+      font-size: .75rem; background: var(--accent);
+      color: white; padding: .2em .6em; border-radius: 999px;
+    }
+    header .spacer { flex: 1; }
+    header .logout-btn {
+      font-size: .8rem; color: var(--text-dim);
+      background: none; border: none; cursor: pointer;
+    }
+    header .logout-btn:hover { color: var(--danger); }
+
+    .layout { display: flex; flex: 1; }
+
+    nav {
+      width: 220px; min-height: 100%;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 1rem 0;
+      flex-shrink: 0;
+    }
+    nav a {
+      display: block; padding: .6rem 1.25rem;
+      color: var(--text-dim); text-decoration: none;
+      font-size: .875rem; border-left: 3px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    nav a:hover, nav a.active {
+      color: var(--text); border-left-color: var(--accent);
+      background: rgba(99,102,241,.08);
+    }
+    nav .section-label {
+      font-size: .7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); padding: .75rem 1.25rem .25rem;
+    }
+
+    main { flex: 1; padding: 1.5rem; overflow: auto; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Components ───────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+    h3 { font-size: .95rem; font-weight: 600; margin-bottom: .75rem; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    thead th {
+      text-align: left; padding: .5rem .75rem;
+      background: rgba(255,255,255,.03);
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim); font-weight: 500;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: .5rem .75rem; }
+    tbody tr:hover td { background: rgba(255,255,255,.02); }
+
+    .badge-status {
+      display: inline-block; font-size: .7rem;
+      padding: .15em .55em; border-radius: 999px; font-weight: 500;
+    }
+    .badge-ok     { background: rgba(34,197,94,.15);  color: var(--success); }
+    .badge-banned { background: rgba(239,68,68,.15);  color: var(--danger); }
+    .badge-unver  { background: rgba(234,179,8,.15);  color: #eab308; }
+
+    input, select {
+      width: 100%; padding: .5rem .75rem;
+      background: #0f1117; border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: .875rem;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .form-row { display: flex; gap: .75rem; margin-bottom: .75rem; }
+    .form-row input { flex: 1; }
+
+    btn, button, .btn {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .45rem .9rem; border-radius: var(--radius);
+      font-size: .8rem; font-weight: 500; cursor: pointer;
+      border: none; transition: opacity .15s;
+    }
+    .btn-primary  { background: var(--accent);  color: #fff; }
+    .btn-danger   { background: var(--danger);  color: #fff; }
+    .btn-ghost    { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+    .btn:hover, button:hover { opacity: .85; }
+    .btn:active   { opacity: .7; }
+
+    .toolbar { display: flex; gap: .75rem; margin-bottom: 1rem; align-items: center; }
+    .toolbar input { max-width: 280px; }
+    .toolbar .spacer { flex: 1; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .stat-card .label { font-size: .75rem; color: var(--text-dim); margin-bottom: .25rem; }
+    .stat-card .value { font-size: 1.75rem; font-weight: 700; }
+
+    .detail-row { display: flex; gap: .5rem; align-items: baseline; margin-bottom: .5rem; font-size: .875rem; }
+    .detail-row .key { width: 140px; color: var(--text-dim); flex-shrink: 0; }
+
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .75rem 1.25rem;
+      font-size: .875rem; z-index: 1000;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .2s, transform .2s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: none; }
+    #toast.ok   { border-left: 3px solid var(--success); }
+    #toast.err  { border-left: 3px solid var(--danger); }
+
+    .empty { text-align: center; color: var(--text-dim); padding: 2rem; font-size: .875rem; }
+
+    #loading-indicator {
+      position: fixed; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); transform: scaleX(0); transform-origin: left;
+      transition: transform .3s; z-index: 2000;
+    }
+    #loading-indicator.active { transform: scaleX(.7); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; min-width: 340px;
+    }
+    .modal h3 { margin-bottom: 1rem; }
+    .modal .actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1.25rem; }
+  </style>
+</head>
+<body>
+
+<!-- Loading bar -->
+<div id="loading-indicator"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h2>🔐 authx Admin</h2>
+    <p>Enter your admin token to access the dashboard.</p>
+    <div class="form-row">
+      <input id="token-input" type="password" placeholder="Admin token" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign in</button>
+  </div>
+</div>
+
+<!-- Main layout (hidden until auth) -->
+<div id="app" class="hidden" style="display:flex; flex-direction:column; min-height:100vh;">
+
+  <header>
+    <h1>authx</h1>
+    <span class="badge">Admin</span>
+    <span class="spacer"></span>
+    <button class="logout-btn" onclick="doLogout()">Sign out</button>
+  </header>
+
+  <div class="layout">
+    <nav>
+      <div class="section-label">Overview</div>
+      <a href="#" class="active" onclick="showPanel('overview', this)">Dashboard</a>
+
+      <div class="section-label">Users</div>
+      <a href="#" onclick="showPanel('users', this)">All Users</a>
+
+      <div class="section-label">Sessions</div>
+      <a href="#" onclick="showPanel('sessions', this)">Active Sessions</a>
+    </nav>
+
+    <main>
+
+      <!-- Overview panel -->
+      <div id="panel-overview" class="panel active">
+        <h2>Dashboard</h2>
+        <div id="stats" class="stat-grid">
+          <div class="stat-card"><div class="label">Total Users</div><div class="value" id="stat-total">—</div></div>
+          <div class="stat-card"><div class="label">Banned Users</div><div class="value" id="stat-banned">—</div></div>
+          <div class="stat-card"><div class="label">Unverified</div><div class="value" id="stat-unver">—</div></div>
+        </div>
+        <div class="card">
+          <h3>Recent Users</h3>
+          <div id="recent-users"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Users panel -->
+      <div id="panel-users" class="panel">
+        <h2>Users</h2>
+        <div class="toolbar">
+          <input id="user-search" type="text" placeholder="Filter by email…" oninput="filterUsers(this.value)">
+          <span class="spacer"></span>
+          <button class="btn btn-primary" onclick="showCreateUser()">+ New User</button>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Verified</th>
+                <th>Created</th>
+                <th style="width:120px"></th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"><tr><td colspan="6"><div class="empty">Loading…</div></td></tr></tbody>
+          </table>
+        </div>
+        <div id="users-pagination" style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.5rem;"></div>
+      </div>
+
+      <!-- Sessions panel -->
+      <div id="panel-sessions" class="panel">
+        <h2>User Sessions</h2>
+        <div class="toolbar">
+          <input id="session-uid" type="text" placeholder="User ID (UUID)…">
+          <button class="btn btn-primary" onclick="loadSessions()">Load Sessions</button>
+          <button class="btn btn-danger" onclick="revokeAll()">Revoke All</button>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Session ID</th>
+                <th>IP Address</th>
+                <th>Expires</th>
+                <th>Org</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-tbody"><tr><td colspan="4"><div class="empty">Enter a user ID above.</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Create user modal -->
+<div id="create-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Create User</h3>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-email" type="email" placeholder="Email address">
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="hideCreateUser()">Cancel</button>
+      <button class="btn btn-primary" onclick="createUser()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ban modal -->
+<div id="ban-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Ban User</h3>
+    <input id="ban-reason" type="text" placeholder="Reason for ban" style="margin-bottom:.75rem">
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="hideBanModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmBan()">Ban</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let TOKEN = sessionStorage.getItem('authx_admin_token') || '';
+const BASE = window.location.pathname.replace(/\/$/, '');
+
+function doLogin() {
+  TOKEN = document.getElementById('token-input').value.trim();
+  if (!TOKEN) return;
+  sessionStorage.setItem('authx_admin_token', TOKEN);
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
+  loadOverview();
+}
+document.getElementById('token-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogout() {
+  sessionStorage.removeItem('authx_admin_token');
+  TOKEN = '';
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
+}
+
+if (TOKEN) {
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('app').style.display = 'flex';
+  loadOverview();
+}
+
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  setLoading(true);
+  try {
+    const opts = {
+      method,
+      headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${BASE}/api${path}`, opts);
+    if (res.status === 401) { doLogout(); return null; }
+    if (res.status === 204) return null;
+    return res.ok ? res.json() : null;
+  } catch (e) {
+    toast(e.message, false);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Loading / toast ───────────────────────────────────────────────────────────
+function setLoading(v) {
+  document.getElementById('loading-indicator').classList.toggle('active', v);
+}
+
+let toastTimer;
+function toast(msg, ok = true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${ok ? 'ok' : 'err'}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPanel(name, link) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  if (link) link.classList.add('active');
+  if (name === 'overview') loadOverview();
+  if (name === 'users')    loadUsers();
+}
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+async function loadOverview() {
+  const users = await api('GET', '/users?limit=50');
+  if (!users) return;
+  document.getElementById('stat-total').textContent  = users.length;
+  document.getElementById('stat-banned').textContent = users.filter(u => u.metadata?.banned).length;
+  document.getElementById('stat-unver').textContent  = users.filter(u => !u.email_verified).length;
+
+  const tbody = document.getElementById('recent-users');
+  const recent = users.slice(0, 5);
+  tbody.innerHTML = recent.length === 0
+    ? '<div class="empty">No users yet.</div>'
+    : renderUserTable(recent, false);
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+let allUsers = [];
+let usersPage = 0;
+const PAGE_SIZE = 25;
+
+async function loadUsers(offset = 0) {
+  const data = await api('GET', `/users?offset=${offset}&limit=${PAGE_SIZE}`);
+  if (!data) return;
+  allUsers = data;
+  usersPage = offset;
+  renderUsers(data);
+}
+
+function filterUsers(query) {
+  const q = query.toLowerCase();
+  renderUsers(allUsers.filter(u => u.email.toLowerCase().includes(q)));
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('users-tbody');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty">No users found.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const banned   = u.metadata?.banned;
+    const verified = u.email_verified;
+    const status   = banned ? '<span class="badge-status badge-banned">Banned</span>'
+                            : '<span class="badge-status badge-ok">Active</span>';
+    const ver      = verified ? '<span class="badge-status badge-ok">✓</span>'
+                              : '<span class="badge-status badge-unver">Pending</span>';
+    const created  = new Date(u.created_at).toLocaleDateString();
+    const banBtn   = banned
+      ? `<button class="btn btn-ghost" onclick="unbanUser('${u.id}')">Unban</button>`
+      : `<button class="btn btn-danger" onclick="openBanModal('${u.id}')">Ban</button>`;
+    return `<tr>
+      <td>${esc(u.email)}</td>
+      <td>${u.username ? esc(u.username) : '<span style="color:var(--muted)">—</span>'}</td>
+      <td>${status}</td>
+      <td>${ver}</td>
+      <td>${created}</td>
+      <td style="display:flex; gap:.35rem;">${banBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderUserTable(users) {
+  return `<table><thead><tr><th>Email</th><th>Status</th><th>Verified</th><th>Created</th></tr></thead><tbody>
+    ${users.map(u => {
+      const banned = u.metadata?.banned;
+      return `<tr>
+        <td>${esc(u.email)}</td>
+        <td>${banned ? '<span class="badge-status badge-banned">Banned</span>' : '<span class="badge-status badge-ok">Active</span>'}</td>
+        <td>${u.email_verified ? '✓' : '—'}</td>
+        <td>${new Date(u.created_at).toLocaleDateString()}</td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+// ── Create user ───────────────────────────────────────────────────────────────
+function showCreateUser() { document.getElementById('create-modal').classList.remove('hidden'); }
+function hideCreateUser() { document.getElementById('create-modal').classList.add('hidden'); }
+
+async function createUser() {
+  const email = document.getElementById('new-email').value.trim();
+  if (!email) return;
+  const user = await api('POST', '/users', { email });
+  hideCreateUser();
+  if (user) { toast(`User ${user.email} created`); loadUsers(usersPage); }
+  else toast('Failed to create user', false);
+}
+
+// ── Ban / Unban ───────────────────────────────────────────────────────────────
+let banTargetId = null;
+
+function openBanModal(id) {
+  banTargetId = id;
+  document.getElementById('ban-reason').value = '';
+  document.getElementById('ban-modal').classList.remove('hidden');
+}
+function hideBanModal() { document.getElementById('ban-modal').classList.add('hidden'); banTargetId = null; }
+
+async function confirmBan() {
+  const reason = document.getElementById('ban-reason').value.trim() || 'No reason provided';
+  await api('POST', `/users/${banTargetId}/ban`, { reason });
+  hideBanModal();
+  toast('User banned');
+  loadUsers(usersPage);
+}
+
+async function unbanUser(id) {
+  await api('DELETE', `/users/${id}/ban`);
+  toast('User unbanned');
+  loadUsers(usersPage);
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
+async function loadSessions() {
+  const uid = document.getElementById('session-uid').value.trim();
+  if (!uid) return;
+  const sessions = await api('GET', `/users/${uid}/sessions`);
+  const tbody = document.getElementById('sessions-tbody');
+  if (!sessions || !sessions.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty">No sessions found.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = sessions.map(s => `<tr>
+    <td style="font-family:monospace; font-size:.78rem">${s.id.slice(0,8)}…</td>
+    <td>${esc(s.ip_address)}</td>
+    <td>${new Date(s.expires_at).toLocaleString()}</td>
+    <td>${s.org_id ?? '—'}</td>
+  </tr>`).join('');
+}
+
+async function revokeAll() {
+  const uid = document.getElementById('session-uid').value.trim();
+  if (!uid) return;
+  await api('DELETE', `/users/${uid}/sessions`);
+  toast('All sessions revoked');
+  loadSessions();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use authx_core::{error::Result, events::EventBus};
 use authx_storage::memory::MemoryStore;

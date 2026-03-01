@@ -252,6 +252,7 @@ mod tests {
             id:             Uuid::new_v4(),
             email:          "test@example.com".into(),
             email_verified: verified,
+            username:       None,
             created_at:     Utc::now(),
             updated_at:     Utc::now(),
             metadata:       serde_json::Value::Null,

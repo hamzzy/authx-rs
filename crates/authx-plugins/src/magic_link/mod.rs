@@ -13,7 +13,7 @@ mod tests {
     }
 
     async fn make_user(store: &MemoryStore, email: &str) -> uuid::Uuid {
-        UserRepository::create(store, CreateUser { email: email.into(), metadata: None })
+        UserRepository::create(store, CreateUser { email: email.into(), username: None, metadata: None })
             .await
             .unwrap()
             .id

@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use tracing::instrument;
 
 use authx_core::{
-    crypto::{decrypt, encrypt, sha256_hex},
+    crypto::{encrypt, sha256_hex},
     error::{AuthError, Result},
     events::{AuthEvent, EventBus},
     models::{CreateSession, CreateUser, Session, UpsertOAuthAccount, User},

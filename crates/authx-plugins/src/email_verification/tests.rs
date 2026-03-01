@@ -1,6 +1,7 @@
 use super::*;
 use authx_core::{events::EventBus, models::CreateUser};
 use authx_storage::{memory::MemoryStore, ports::UserRepository};
+use uuid::Uuid;
 
 async fn setup() -> (EmailVerificationService<MemoryStore>, Uuid) {
     let store  = MemoryStore::new();

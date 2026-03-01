@@ -2,7 +2,7 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use chrono::Utc;
 use tracing::instrument;
-use uuid::Uuid;
+
 
 use authx_core::{
     crypto::sha256_hex,

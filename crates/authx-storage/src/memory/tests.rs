@@ -14,7 +14,7 @@ fn store() -> MemoryStore {
 }
 
 fn create_user_req(email: &str) -> CreateUser {
-    CreateUser { email: email.to_owned(), metadata: None }
+    CreateUser { email: email.to_owned(), username: None, metadata: None }
 }
 
 fn session_req(user_id: Uuid, token_hash: &str) -> CreateSession {

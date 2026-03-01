@@ -14,6 +14,7 @@ mod tests {
     async fn make_user(store: &MemoryStore) -> uuid::Uuid {
         UserRepository::create(store, CreateUser {
             email:    "totp@example.com".into(),
+            username: None,
             metadata: None,
         })
         .await

@@ -1,6 +1,7 @@
 use super::*;
 use authx_storage::memory::MemoryStore;
 use chrono::Utc;
+use uuid::Uuid;
 
 fn store() -> MemoryStore { MemoryStore::new() }
 

@@ -103,8 +103,9 @@ where
             }
         }
 
-        ApiKeyRepository::touch_last_used(&self.storage, key.id, Utc::now()).await?;
+        let now = Utc::now();
+        ApiKeyRepository::touch_last_used(&self.storage, key.id, now).await?;
         tracing::info!(key_id = %key.id, user_id = %key.user_id, "api key authenticated");
-        Ok(key)
+        Ok(ApiKey { last_used_at: Some(now), ..key })
     }
 }

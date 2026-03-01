@@ -72,7 +72,7 @@ where
 
         let user = UserRepository::create(
             &self.storage,
-            CreateUser { email: req.email, metadata: None },
+            CreateUser { email: req.email, username: None, metadata: None },
         )
         .await?;
 
