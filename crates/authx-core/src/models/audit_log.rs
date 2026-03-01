@@ -10,7 +10,7 @@ pub struct AuditLog {
     pub action:        String,
     pub resource_type: String,
     pub resource_id:   Option<String>,
-    pub ip_address:    String,
+    pub ip_address:    Option<String>,
     pub metadata:      serde_json::Value,
     pub created_at:    DateTime<Utc>,
 }
@@ -22,6 +22,6 @@ pub struct CreateAuditLog {
     pub action:        String,
     pub resource_type: String,
     pub resource_id:   Option<String>,
-    pub ip_address:    String,
+    pub ip_address:    Option<String>,
     pub metadata:      Option<serde_json::Value>,
 }

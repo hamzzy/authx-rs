@@ -11,22 +11,29 @@ use uuid::Uuid;
 use authx_core::{
     error::{AuthError, Result, StorageError},
     models::{
-        AuditLog, CreateAuditLog, CreateCredential, CreateOrg, CreateSession, CreateUser,
-        Credential, CredentialKind, Membership, Organization, Role, Session, UpdateUser, User,
+        ApiKey, AuditLog, CreateApiKey, CreateAuditLog, CreateCredential, CreateInvite, CreateOrg,
+        CreateSession, CreateUser, Credential, CredentialKind, Invite, Membership, OAuthAccount,
+        Organization, Role, Session, UpdateUser, UpsertOAuthAccount, User,
     },
 };
 
-use crate::ports::{AuditLogRepository, CredentialRepository, OrgRepository, SessionRepository, UserRepository};
+use crate::ports::{
+    ApiKeyRepository, AuditLogRepository, CredentialRepository, InviteRepository,
+    OAuthAccountRepository, OrgRepository, SessionRepository, UserRepository,
+};
 
 #[derive(Clone, Default)]
 pub struct MemoryStore {
-    users:       Arc<RwLock<HashMap<Uuid, User>>>,
-    sessions:    Arc<RwLock<HashMap<Uuid, Session>>>,
-    credentials: Arc<RwLock<Vec<Credential>>>,
-    audit_logs:  Arc<RwLock<Vec<AuditLog>>>,
-    orgs:        Arc<RwLock<HashMap<Uuid, Organization>>>,
-    roles:       Arc<RwLock<HashMap<Uuid, Role>>>,
-    memberships: Arc<RwLock<Vec<Membership>>>,
+    users:          Arc<RwLock<HashMap<Uuid, User>>>,
+    sessions:       Arc<RwLock<HashMap<Uuid, Session>>>,
+    credentials:    Arc<RwLock<Vec<Credential>>>,
+    audit_logs:     Arc<RwLock<Vec<AuditLog>>>,
+    orgs:           Arc<RwLock<HashMap<Uuid, Organization>>>,
+    roles:          Arc<RwLock<HashMap<Uuid, Role>>>,
+    memberships:    Arc<RwLock<Vec<Membership>>>,
+    api_keys:       Arc<RwLock<Vec<ApiKey>>>,
+    oauth_accounts: Arc<RwLock<Vec<OAuthAccount>>>,
+    invites:        Arc<RwLock<Vec<Invite>>>,
 }
 
 impl MemoryStore {
@@ -34,6 +41,8 @@ impl MemoryStore {
         Self::default()
     }
 }
+
+// ── UserRepository ────────────────────────────────────────────────────────────
 
 #[async_trait]
 impl UserRepository for MemoryStore {
@@ -51,15 +60,44 @@ impl UserRepository for MemoryStore {
             .cloned())
     }
 
+    async fn find_by_username(&self, username: &str) -> Result<Option<User>> {
+        Ok(self
+            .users
+            .read()
+            .unwrap()
+            .values()
+            .find(|u| u.username.as_deref() == Some(username))
+            .cloned())
+    }
+
+    async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>> {
+        let users = self.users.read().unwrap();
+        let mut sorted: Vec<User> = users.values().cloned().collect();
+        sorted.sort_by_key(|u| u.created_at);
+        Ok(sorted
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .collect())
+    }
+
     async fn create(&self, data: CreateUser) -> Result<User> {
         let mut users = self.users.write().unwrap();
         if users.values().any(|u| u.email == data.email) {
             return Err(AuthError::EmailTaken);
         }
+        if let Some(ref uname) = data.username {
+            if users.values().any(|u| u.username.as_deref() == Some(uname.as_str())) {
+                return Err(AuthError::Storage(StorageError::Conflict(
+                    format!("username '{}' already taken", uname),
+                )));
+            }
+        }
         let user = User {
             id:             Uuid::new_v4(),
             email:          data.email,
             email_verified: false,
+            username:       data.username,
             created_at:     Utc::now(),
             updated_at:     Utc::now(),
             metadata:       data.metadata.unwrap_or(serde_json::Value::Null),
@@ -73,6 +111,7 @@ impl UserRepository for MemoryStore {
         let user = users.get_mut(&id).ok_or(AuthError::UserNotFound)?;
         if let Some(email)    = data.email          { user.email = email; }
         if let Some(verified) = data.email_verified { user.email_verified = verified; }
+        if let Some(uname)    = data.username       { user.username = Some(uname); }
         if let Some(meta)     = data.metadata       { user.metadata = meta; }
         user.updated_at = Utc::now();
         Ok(user.clone())
@@ -83,6 +122,8 @@ impl UserRepository for MemoryStore {
         Ok(())
     }
 }
+
+// ── SessionRepository ─────────────────────────────────────────────────────────
 
 #[async_trait]
 impl SessionRepository for MemoryStore {
@@ -135,7 +176,18 @@ impl SessionRepository for MemoryStore {
         self.sessions.write().unwrap().retain(|_, s| s.user_id != user_id);
         Ok(())
     }
+
+    async fn set_org(&self, session_id: Uuid, org_id: Option<Uuid>) -> Result<Session> {
+        let mut sessions = self.sessions.write().unwrap();
+        let session = sessions
+            .get_mut(&session_id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        session.org_id = org_id;
+        Ok(session.clone())
+    }
 }
+
+// ── CredentialRepository ──────────────────────────────────────────────────────
 
 #[async_trait]
 impl CredentialRepository for MemoryStore {
@@ -185,6 +237,8 @@ impl CredentialRepository for MemoryStore {
         Ok(())
     }
 }
+
+// ── OrgRepository ─────────────────────────────────────────────────────────────
 
 #[async_trait]
 impl OrgRepository for MemoryStore {
@@ -259,7 +313,49 @@ impl OrgRepository for MemoryStore {
             .cloned()
             .collect())
     }
+
+    async fn find_roles(&self, org_id: Uuid) -> Result<Vec<Role>> {
+        Ok(self
+            .roles
+            .read()
+            .unwrap()
+            .values()
+            .filter(|r| r.org_id == org_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn create_role(&self, org_id: Uuid, name: String, permissions: Vec<String>) -> Result<Role> {
+        let role = Role {
+            id:          Uuid::new_v4(),
+            org_id,
+            name,
+            permissions,
+        };
+        self.roles.write().unwrap().insert(role.id, role.clone());
+        Ok(role)
+    }
+
+    async fn update_member_role(&self, org_id: Uuid, user_id: Uuid, role_id: Uuid) -> Result<Membership> {
+        let role = self
+            .roles
+            .read()
+            .unwrap()
+            .get(&role_id)
+            .cloned()
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+
+        let mut memberships = self.memberships.write().unwrap();
+        let m = memberships
+            .iter_mut()
+            .find(|m| m.org_id == org_id && m.user_id == user_id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        m.role = role;
+        Ok(m.clone())
+    }
 }
+
+// ── AuditLogRepository ────────────────────────────────────────────────────────
 
 #[async_trait]
 impl AuditLogRepository for MemoryStore {
@@ -301,5 +397,172 @@ impl AuditLogRepository for MemoryStore {
             .take(limit as usize)
             .cloned()
             .collect())
+    }
+}
+
+// ── ApiKeyRepository ──────────────────────────────────────────────────────────
+
+#[async_trait]
+impl ApiKeyRepository for MemoryStore {
+    async fn create(&self, data: CreateApiKey) -> Result<ApiKey> {
+        let key = ApiKey {
+            id:           Uuid::new_v4(),
+            user_id:      data.user_id,
+            org_id:       data.org_id,
+            key_hash:     data.key_hash,
+            prefix:       data.prefix,
+            name:         data.name,
+            scopes:       data.scopes,
+            expires_at:   data.expires_at,
+            last_used_at: None,
+        };
+        self.api_keys.write().unwrap().push(key.clone());
+        Ok(key)
+    }
+
+    async fn find_by_hash(&self, key_hash: &str) -> Result<Option<ApiKey>> {
+        Ok(self
+            .api_keys
+            .read()
+            .unwrap()
+            .iter()
+            .find(|k| k.key_hash == key_hash)
+            .cloned())
+    }
+
+    async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<ApiKey>> {
+        Ok(self
+            .api_keys
+            .read()
+            .unwrap()
+            .iter()
+            .filter(|k| k.user_id == user_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn revoke(&self, key_id: Uuid, user_id: Uuid) -> Result<()> {
+        let mut keys = self.api_keys.write().unwrap();
+        let before = keys.len();
+        keys.retain(|k| !(k.id == key_id && k.user_id == user_id));
+        if keys.len() == before {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        Ok(())
+    }
+
+    async fn touch_last_used(&self, key_id: Uuid, at: chrono::DateTime<Utc>) -> Result<()> {
+        let mut keys = self.api_keys.write().unwrap();
+        if let Some(k) = keys.iter_mut().find(|k| k.id == key_id) {
+            k.last_used_at = Some(at);
+        }
+        Ok(())
+    }
+}
+
+// ── OAuthAccountRepository ────────────────────────────────────────────────────
+
+#[async_trait]
+impl OAuthAccountRepository for MemoryStore {
+    async fn upsert(&self, data: UpsertOAuthAccount) -> Result<OAuthAccount> {
+        let mut accounts = self.oauth_accounts.write().unwrap();
+        if let Some(existing) = accounts
+            .iter_mut()
+            .find(|a| a.provider == data.provider && a.provider_user_id == data.provider_user_id)
+        {
+            existing.access_token_enc  = data.access_token_enc;
+            existing.refresh_token_enc = data.refresh_token_enc;
+            existing.expires_at        = data.expires_at;
+            return Ok(existing.clone());
+        }
+        let account = OAuthAccount {
+            id:                Uuid::new_v4(),
+            user_id:           data.user_id,
+            provider:          data.provider,
+            provider_user_id:  data.provider_user_id,
+            access_token_enc:  data.access_token_enc,
+            refresh_token_enc: data.refresh_token_enc,
+            expires_at:        data.expires_at,
+        };
+        accounts.push(account.clone());
+        Ok(account)
+    }
+
+    async fn find_by_provider(&self, provider: &str, provider_user_id: &str) -> Result<Option<OAuthAccount>> {
+        Ok(self
+            .oauth_accounts
+            .read()
+            .unwrap()
+            .iter()
+            .find(|a| a.provider == provider && a.provider_user_id == provider_user_id)
+            .cloned())
+    }
+
+    async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<OAuthAccount>> {
+        Ok(self
+            .oauth_accounts
+            .read()
+            .unwrap()
+            .iter()
+            .filter(|a| a.user_id == user_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn delete(&self, id: Uuid) -> Result<()> {
+        let mut accounts = self.oauth_accounts.write().unwrap();
+        let before = accounts.len();
+        accounts.retain(|a| a.id != id);
+        if accounts.len() == before {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        Ok(())
+    }
+}
+
+// ── InviteRepository ──────────────────────────────────────────────────────────
+
+#[async_trait]
+impl InviteRepository for MemoryStore {
+    async fn create(&self, data: CreateInvite) -> Result<Invite> {
+        let invite = Invite {
+            id:          Uuid::new_v4(),
+            org_id:      data.org_id,
+            email:       data.email,
+            role_id:     data.role_id,
+            token_hash:  data.token_hash,
+            expires_at:  data.expires_at,
+            accepted_at: None,
+        };
+        self.invites.write().unwrap().push(invite.clone());
+        Ok(invite)
+    }
+
+    async fn find_by_token_hash(&self, hash: &str) -> Result<Option<Invite>> {
+        Ok(self
+            .invites
+            .read()
+            .unwrap()
+            .iter()
+            .find(|i| i.token_hash == hash)
+            .cloned())
+    }
+
+    async fn accept(&self, invite_id: Uuid) -> Result<Invite> {
+        let mut invites = self.invites.write().unwrap();
+        let invite = invites
+            .iter_mut()
+            .find(|i| i.id == invite_id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        invite.accepted_at = Some(Utc::now());
+        Ok(invite.clone())
+    }
+
+    async fn delete_expired(&self) -> Result<u64> {
+        let mut invites = self.invites.write().unwrap();
+        let before = invites.len();
+        let now = Utc::now();
+        invites.retain(|i| i.accepted_at.is_some() || i.expires_at > now);
+        Ok((before - invites.len()) as u64)
     }
 }

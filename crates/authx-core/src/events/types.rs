@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::models::{Session, User};
+use crate::models::{Membership, Session, User};
 
 #[derive(Debug, Clone)]
 pub enum AuthEvent {
@@ -11,6 +11,8 @@ pub enum AuthEvent {
     SessionExpired { session_id: Uuid, user_id: Uuid },
     PasswordChanged { user_id: Uuid },
     EmailVerified   { user_id: Uuid },
+    OAuthLinked     { user_id: Uuid, provider: String },
+    InviteAccepted  { membership: Membership },
 }
 
 impl AuthEvent {
@@ -23,6 +25,8 @@ impl AuthEvent {
             AuthEvent::SessionExpired { .. } => "session.expired",
             AuthEvent::PasswordChanged { .. }=> "auth.password_changed",
             AuthEvent::EmailVerified { .. }  => "auth.email_verified",
+            AuthEvent::OAuthLinked { .. }    => "auth.oauth_linked",
+            AuthEvent::InviteAccepted { .. } => "org.invite_accepted",
         }
     }
 }

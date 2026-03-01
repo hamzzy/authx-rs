@@ -7,6 +7,7 @@ pub struct User {
     pub id:             Uuid,
     pub email:          String,
     pub email_verified: bool,
+    pub username:       Option<String>,
     pub created_at:     DateTime<Utc>,
     pub updated_at:     DateTime<Utc>,
     pub metadata:       serde_json::Value,
@@ -15,6 +16,7 @@ pub struct User {
 #[derive(Debug, Clone)]
 pub struct CreateUser {
     pub email:    String,
+    pub username: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -22,5 +24,6 @@ pub struct CreateUser {
 pub struct UpdateUser {
     pub email:          Option<String>,
     pub email_verified: Option<bool>,
+    pub username:       Option<String>,
     pub metadata:       Option<serde_json::Value>,
 }
