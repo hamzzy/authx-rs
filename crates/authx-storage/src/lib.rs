@@ -5,4 +5,4 @@ pub mod ports;
 pub mod sqlx;
 
 pub use memory::MemoryStore;
-pub use ports::{OrgRepository, SessionRepository, StorageAdapter, UserRepository};
+pub use ports::{CredentialRepository, OrgRepository, SessionRepository, StorageAdapter, UserRepository};

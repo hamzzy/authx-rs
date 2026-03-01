@@ -1,0 +1,21 @@
+[package]
+name    = "axum-app"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "axum-app"
+path = "src/main.rs"
+
+[dependencies]
+authx-core.workspace    = true
+authx-storage.workspace = true
+authx-axum.workspace    = true
+axum.workspace          = true
+tower-http.workspace    = true
+tokio.workspace         = true
+tracing.workspace       = true
+tracing-subscriber.workspace = true
+serde.workspace         = true
+serde_json.workspace    = true
+uuid.workspace          = true

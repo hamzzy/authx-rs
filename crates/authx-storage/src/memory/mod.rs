@@ -11,19 +11,20 @@ use uuid::Uuid;
 use authx_core::{
     error::{AuthError, Result, StorageError},
     models::{
-        CreateOrg, CreateSession, CreateUser, Membership, Organization, Role, Session, UpdateUser,
-        User,
+        CreateCredential, CreateOrg, CreateSession, CreateUser, Credential, CredentialKind,
+        Membership, Organization, Role, Session, UpdateUser, User,
     },
 };
 
-use crate::ports::{OrgRepository, SessionRepository, UserRepository};
+use crate::ports::{CredentialRepository, OrgRepository, SessionRepository, UserRepository};
 
 #[derive(Clone, Default)]
 pub struct MemoryStore {
-    users:    Arc<RwLock<HashMap<Uuid, User>>>,
-    sessions: Arc<RwLock<HashMap<Uuid, Session>>>,
-    orgs:     Arc<RwLock<HashMap<Uuid, Organization>>>,
-    roles:    Arc<RwLock<HashMap<Uuid, Role>>>,
+    users:       Arc<RwLock<HashMap<Uuid, User>>>,
+    sessions:    Arc<RwLock<HashMap<Uuid, Session>>>,
+    credentials: Arc<RwLock<Vec<Credential>>>,
+    orgs:        Arc<RwLock<HashMap<Uuid, Organization>>>,
+    roles:       Arc<RwLock<HashMap<Uuid, Role>>>,
     memberships: Arc<RwLock<Vec<Membership>>>,
 }
 
@@ -51,11 +52,9 @@ impl UserRepository for MemoryStore {
 
     async fn create(&self, data: CreateUser) -> Result<User> {
         let mut users = self.users.write().unwrap();
-
         if users.values().any(|u| u.email == data.email) {
             return Err(AuthError::EmailTaken);
         }
-
         let user = User {
             id:             Uuid::new_v4(),
             email:          data.email,
@@ -71,21 +70,15 @@ impl UserRepository for MemoryStore {
     async fn update(&self, id: Uuid, data: UpdateUser) -> Result<User> {
         let mut users = self.users.write().unwrap();
         let user = users.get_mut(&id).ok_or(AuthError::UserNotFound)?;
-
-        if let Some(email)          = data.email          { user.email = email; }
-        if let Some(verified)       = data.email_verified { user.email_verified = verified; }
-        if let Some(meta)           = data.metadata       { user.metadata = meta; }
+        if let Some(email)    = data.email          { user.email = email; }
+        if let Some(verified) = data.email_verified { user.email_verified = verified; }
+        if let Some(meta)     = data.metadata       { user.metadata = meta; }
         user.updated_at = Utc::now();
-
         Ok(user.clone())
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
-        self.users
-            .write()
-            .unwrap()
-            .remove(&id)
-            .ok_or(AuthError::UserNotFound)?;
+        self.users.write().unwrap().remove(&id).ok_or(AuthError::UserNotFound)?;
         Ok(())
     }
 }
@@ -108,26 +101,24 @@ impl SessionRepository for MemoryStore {
     }
 
     async fn find_by_token_hash(&self, hash: &str) -> Result<Option<Session>> {
-        let session = self
+        Ok(self
             .sessions
             .read()
             .unwrap()
             .values()
             .find(|s| s.token_hash == hash && s.expires_at > Utc::now())
-            .cloned();
-        Ok(session)
+            .cloned())
     }
 
     async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<Session>> {
-        let sessions = self
+        Ok(self
             .sessions
             .read()
             .unwrap()
             .values()
             .filter(|s| s.user_id == user_id)
             .cloned()
-            .collect();
-        Ok(sessions)
+            .collect())
     }
 
     async fn invalidate(&self, session_id: Uuid) -> Result<()> {
@@ -140,10 +131,56 @@ impl SessionRepository for MemoryStore {
     }
 
     async fn invalidate_all_for_user(&self, user_id: Uuid) -> Result<()> {
-        self.sessions
-            .write()
+        self.sessions.write().unwrap().retain(|_, s| s.user_id != user_id);
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl CredentialRepository for MemoryStore {
+    async fn create(&self, data: CreateCredential) -> Result<Credential> {
+        let cred = Credential {
+            id:              Uuid::new_v4(),
+            user_id:         data.user_id,
+            kind:            data.kind,
+            credential_hash: data.credential_hash,
+            metadata:        data.metadata.unwrap_or(serde_json::Value::Null),
+        };
+        self.credentials.write().unwrap().push(cred.clone());
+        Ok(cred)
+    }
+
+    async fn find_password_hash(&self, user_id: Uuid) -> Result<Option<String>> {
+        Ok(self
+            .credentials
+            .read()
             .unwrap()
-            .retain(|_, s| s.user_id != user_id);
+            .iter()
+            .find(|c| c.user_id == user_id && c.kind == CredentialKind::Password)
+            .map(|c| c.credential_hash.clone()))
+    }
+
+    async fn find_by_user_and_kind(
+        &self,
+        user_id: Uuid,
+        kind: CredentialKind,
+    ) -> Result<Option<Credential>> {
+        Ok(self
+            .credentials
+            .read()
+            .unwrap()
+            .iter()
+            .find(|c| c.user_id == user_id && c.kind == kind)
+            .cloned())
+    }
+
+    async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()> {
+        let mut creds = self.credentials.write().unwrap();
+        let before = creds.len();
+        creds.retain(|c| !(c.user_id == user_id && c.kind == kind));
+        if creds.len() == before {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
         Ok(())
     }
 }
@@ -190,9 +227,8 @@ impl OrgRepository for MemoryStore {
             .get(&role_id)
             .cloned()
             .ok_or(AuthError::Storage(StorageError::NotFound))?;
-
         let membership = Membership {
-            id:         Uuid::new_v4(),
+            id: Uuid::new_v4(),
             user_id,
             org_id,
             role,

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "examples/*"]
 resolver = "2"
 
 [workspace.package]
@@ -19,6 +19,7 @@ axum-extra   = { version = "0.9", features = ["typed-header"] }
 tower        = { version = "0.5" }
 tower-http   = { version = "0.6", features = ["trace", "cors"] }
 http         = "1"
+cookie       = { version = "0.18", features = ["percent-encode"] }
 
 # Crypto
 argon2       = { version = "0.5", features = ["std"] }
@@ -45,7 +46,8 @@ thiserror    = "1"
 anyhow       = "1"
 
 # Observability
-tracing      = "0.1"
+tracing              = "0.1"
+tracing-subscriber   = { version = "0.3", features = ["env-filter"] }
 
 # HTTP client (OAuth)
 reqwest      = { version = "0.12", features = ["json"] }

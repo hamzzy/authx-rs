@@ -1,64 +1,112 @@
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-};
-use tracing::instrument;
+use std::sync::Arc;
 
-use authx_core::{
-    crypto::sha256_hex,
-    identity::Identity,
-};
+use axum::response::Response;
+use tower::{Layer, Service};
+
+use authx_core::{crypto::sha256_hex, identity::Identity};
 use authx_storage::ports::{SessionRepository, UserRepository};
 
 const SESSION_HEADER: &str = "x-authx-token";
-const SESSION_COOKIE: &str = "authx_session";
+const SESSION_COOKIE: &str  = "authx_session";
 
-/// Extracts session token from `Authorization: Bearer <token>`, the
-/// `x-authx-token` header, or the `authx_session` cookie (in that order),
-/// resolves it against storage, and inserts an [`Identity`] extension so
-/// downstream extractors can access it.
+// ── Public Layer ─────────────────────────────────────────────────────────────
+
+/// Tower [`Layer`] that resolves session tokens into [`Identity`] extensions.
 ///
-/// Routes that do not require auth still pass through — the identity is just
-/// absent from extensions. Use [`RequireAuth`] to enforce authentication.
-#[instrument(skip(storage, request, next))]
-pub async fn session_middleware<S>(
-    axum::extract::State(storage): axum::extract::State<S>,
-    mut request: Request,
-    next: Next,
-) -> Response
-where
-    S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
-{
-    if let Some(identity) = resolve_identity(&storage, &request).await {
-        request.extensions_mut().insert(identity);
-        tracing::debug!("identity resolved");
-    }
-
-    next.run(request).await
+/// Add this to your router **after** all routes. Unauthenticated requests pass
+/// through; use [`RequireAuth`] on individual routes to enforce auth.
+///
+/// ```rust,ignore
+/// let app = Router::new()
+///     .route("/me", get(me))
+///     .layer(SessionLayer::new(store));
+/// ```
+#[derive(Clone)]
+pub struct SessionLayer<S> {
+    storage: Arc<S>,
 }
 
-async fn resolve_identity<S>(storage: &S, request: &Request) -> Option<Identity>
+impl<S> SessionLayer<S>
 where
     S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
 {
-    let raw_token = extract_token(request)?;
-    let token_hash = sha256_hex(raw_token.as_bytes());
+    pub fn new(storage: S) -> Self {
+        Self { storage: Arc::new(storage) }
+    }
+}
 
-    let session = storage.find_by_token_hash(&token_hash).await.ok()??;
+impl<S, Svc> Layer<Svc> for SessionLayer<S>
+where
+    S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
+{
+    type Service = SessionService<S, Svc>;
 
+    fn layer(&self, inner: Svc) -> Self::Service {
+        SessionService { storage: Arc::clone(&self.storage), inner }
+    }
+}
+
+// ── Inner Service ─────────────────────────────────────────────────────────────
+
+#[derive(Clone)]
+pub struct SessionService<S, Svc> {
+    storage: Arc<S>,
+    inner:   Svc,
+}
+
+impl<S, Svc, ReqBody> Service<axum::http::Request<ReqBody>> for SessionService<S, Svc>
+where
+    S:       SessionRepository + UserRepository + Clone + Send + Sync + 'static,
+    Svc:     Service<axum::http::Request<ReqBody>, Response = Response> + Clone + Send + 'static,
+    Svc::Future: Send + 'static,
+    ReqBody: Send + 'static,
+{
+    type Response = Response;
+    type Error    = Svc::Error;
+    type Future   = std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, Svc::Error>> + Send>>;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut req: axum::http::Request<ReqBody>) -> Self::Future {
+        let storage = Arc::clone(&self.storage);
+        let mut inner = self.inner.clone();
+
+        Box::pin(async move {
+            let token_hash = extract_token(&req).map(|t| sha256_hex(t.as_bytes()));
+
+            if let Some(hash) = token_hash {
+                if let Some(identity) = resolve_identity(&*storage, &hash).await {
+                    req.extensions_mut().insert(identity);
+                    tracing::debug!("identity resolved");
+                }
+            }
+
+            inner.call(req).await
+        })
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async fn resolve_identity<S>(storage: &S, token_hash: &str) -> Option<Identity>
+where
+    S: SessionRepository + UserRepository + Clone + Send + Sync + 'static,
+{
+    let session = storage.find_by_token_hash(token_hash).await.ok()??;
     if session.expires_at < chrono::Utc::now() {
         tracing::debug!(session_id = %session.id, "session expired");
         return None;
     }
-
     let user = storage.find_by_id(session.user_id).await.ok()??;
-
     Some(Identity::new(user, session))
 }
 
-fn extract_token(request: &Request) -> Option<String> {
-    // 1. Authorization: Bearer <token>
+fn extract_token<B>(request: &axum::http::Request<B>) -> Option<String> {
     if let Some(bearer) = request
         .headers()
         .get(axum::http::header::AUTHORIZATION)
@@ -68,7 +116,6 @@ fn extract_token(request: &Request) -> Option<String> {
         return Some(bearer.to_owned());
     }
 
-    // 2. x-authx-token header
     if let Some(token) = request
         .headers()
         .get(SESSION_HEADER)
@@ -77,7 +124,6 @@ fn extract_token(request: &Request) -> Option<String> {
         return Some(token.to_owned());
     }
 
-    // 3. authx_session cookie
     let cookie_header = request
         .headers()
         .get(axum::http::header::COOKIE)

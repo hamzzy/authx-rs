@@ -4,7 +4,8 @@ use uuid::Uuid;
 use authx_core::{
     error::Result,
     models::{
-        CreateOrg, CreateSession, CreateUser, Membership, Organization, Session, UpdateUser, User,
+        CreateCredential, CreateOrg, CreateSession, CreateUser, Credential, CredentialKind,
+        Membership, Organization, Session, UpdateUser, User,
     },
 };
 
@@ -27,6 +28,14 @@ pub trait SessionRepository: Send + Sync + 'static {
 }
 
 #[async_trait]
+pub trait CredentialRepository: Send + Sync + 'static {
+    async fn create(&self, data: CreateCredential) -> Result<Credential>;
+    async fn find_password_hash(&self, user_id: Uuid) -> Result<Option<String>>;
+    async fn find_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<Option<Credential>>;
+    async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()>;
+}
+
+#[async_trait]
 pub trait OrgRepository: Send + Sync + 'static {
     async fn create(&self, data: CreateOrg) -> Result<Organization>;
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Organization>>;
@@ -36,9 +45,13 @@ pub trait OrgRepository: Send + Sync + 'static {
     async fn get_members(&self, org_id: Uuid) -> Result<Vec<Membership>>;
 }
 
-/// Composite adapter trait implemented by storage backends.
-pub trait StorageAdapter: UserRepository + SessionRepository + OrgRepository + Clone + Send + Sync + 'static {}
+/// Composite adapter trait — storage backends implement this.
+pub trait StorageAdapter:
+    UserRepository + SessionRepository + CredentialRepository + OrgRepository
+    + Clone + Send + Sync + 'static
+{}
 
 impl<T> StorageAdapter for T where
-    T: UserRepository + SessionRepository + OrgRepository + Clone + Send + Sync + 'static
+    T: UserRepository + SessionRepository + CredentialRepository + OrgRepository
+       + Clone + Send + Sync + 'static
 {}
