@@ -11,6 +11,11 @@ description          = "Storage abstraction layer for authx-rs: repository trait
 keywords             = ["authentication", "storage", "repository", "postgres", "sqlx"]
 categories           = ["authentication", "database", "web-programming"]
 
+[package.metadata.docs.rs]
+# Enable the postgres feature so PostgresStore appears in the generated docs.
+features     = ["sqlx-postgres"]
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 authx-core.workspace   = true
 async-trait.workspace  = true

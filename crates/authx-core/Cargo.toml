@@ -11,6 +11,10 @@ description          = "Core authentication primitives for authx-rs: crypto, JWT
 keywords             = ["authentication", "authorization", "jwt", "crypto", "argon2"]
 categories           = ["authentication", "cryptography", "web-programming"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 tokio.workspace         = true
 async-trait.workspace   = true

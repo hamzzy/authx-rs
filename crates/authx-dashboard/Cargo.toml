@@ -11,6 +11,10 @@ description = "Embedded admin dashboard for authx-rs"
 keywords             = ["authentication", "dashboard", "admin", "ui"]
 categories           = ["authentication", "web-programming"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 authx-core    = { workspace = true }
 authx-storage = { workspace = true }

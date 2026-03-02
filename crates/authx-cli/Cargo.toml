@@ -11,6 +11,10 @@ description = "authx command-line interface — serve, migrate, and manage users
 keywords             = ["authentication", "cli", "authx", "iam"]
 categories           = ["authentication", "command-line-utilities", "web-programming"]
 
+[package.metadata.docs.rs]
+# authx-cli is a binary crate; docs.rs only indexes it, not builds library docs.
+no-default-features = true
+
 [[bin]]
 name = "authx"
 path = "src/main.rs"

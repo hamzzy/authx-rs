@@ -40,20 +40,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
+      # crates.io rate-limits new crate registrations to ~1 per 10 minutes per account.
+      # Each wait step sleeps 10 minutes then polls for sparse-index availability (max 6 min).
+      # Total worst-case per crate: ~16 minutes. Six crates: ~96 minutes — within the 6-hour job limit.
+
       - name: Publish authx-core
         run: cargo publish -p authx-core
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-core index
+      - name: Wait for authx-core (rate-limit + index)
         run: |
+          echo "sleeping 10 min for crates.io rate-limit window..."
+          sleep 600
           for i in $(seq 1 18); do
             if cargo info authx-core 2>/dev/null | grep -q "0\.1\.0"; then
-              echo "authx-core indexed"
-              exit 0
+              echo "authx-core indexed"; exit 0
             fi
-            echo "waiting... ($i/18)"
-            sleep 20
+            echo "waiting for index... ($i/18)"; sleep 20
           done
           echo "timed out waiting for authx-core" && exit 1
 
@@ -62,15 +66,15 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-storage index
+      - name: Wait for authx-storage (rate-limit + index)
         run: |
+          echo "sleeping 10 min for crates.io rate-limit window..."
+          sleep 600
           for i in $(seq 1 18); do
             if cargo info authx-storage 2>/dev/null | grep -q "0\.1\.0"; then
-              echo "authx-storage indexed"
-              exit 0
+              echo "authx-storage indexed"; exit 0
             fi
-            echo "waiting... ($i/18)"
-            sleep 20
+            echo "waiting for index... ($i/18)"; sleep 20
           done
           echo "timed out waiting for authx-storage" && exit 1
 
@@ -79,15 +83,15 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-plugins index
+      - name: Wait for authx-plugins (rate-limit + index)
         run: |
+          echo "sleeping 10 min for crates.io rate-limit window..."
+          sleep 600
           for i in $(seq 1 18); do
             if cargo info authx-plugins 2>/dev/null | grep -q "0\.1\.0"; then
-              echo "authx-plugins indexed"
-              exit 0
+              echo "authx-plugins indexed"; exit 0
             fi
-            echo "waiting... ($i/18)"
-            sleep 20
+            echo "waiting for index... ($i/18)"; sleep 20
           done
           echo "timed out waiting for authx-plugins" && exit 1
 
@@ -96,15 +100,15 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-axum index
+      - name: Wait for authx-axum (rate-limit + index)
         run: |
+          echo "sleeping 10 min for crates.io rate-limit window..."
+          sleep 600
           for i in $(seq 1 18); do
             if cargo info authx-axum 2>/dev/null | grep -q "0\.1\.0"; then
-              echo "authx-axum indexed"
-              exit 0
+              echo "authx-axum indexed"; exit 0
             fi
-            echo "waiting... ($i/18)"
-            sleep 20
+            echo "waiting for index... ($i/18)"; sleep 20
           done
           echo "timed out waiting for authx-axum" && exit 1
 
@@ -113,15 +117,15 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-dashboard index
+      - name: Wait for authx-dashboard (rate-limit + index)
         run: |
+          echo "sleeping 10 min for crates.io rate-limit window..."
+          sleep 600
           for i in $(seq 1 18); do
             if cargo info authx-dashboard 2>/dev/null | grep -q "0\.1\.0"; then
-              echo "authx-dashboard indexed"
-              exit 0
+              echo "authx-dashboard indexed"; exit 0
             fi
-            echo "waiting... ($i/18)"
-            sleep 20
+            echo "waiting for index... ($i/18)"; sleep 20
           done
           echo "timed out waiting for authx-dashboard" && exit 1
 

@@ -11,6 +11,10 @@ description          = "Axum integration for authx-rs: Tower middleware, session
 keywords             = ["authentication", "axum", "tower", "session", "middleware"]
 categories           = ["authentication", "web-programming", "web-programming::http-server"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 authx-core.workspace    = true
 authx-storage.workspace = true

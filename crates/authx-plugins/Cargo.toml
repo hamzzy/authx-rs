@@ -11,6 +11,10 @@ description          = "Auth plugin collection for authx-rs: email/password, TOT
 keywords             = ["authentication", "totp", "oauth", "magic-link", "mfa"]
 categories           = ["authentication", "web-programming"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 authx-core.workspace    = true
 authx-storage.workspace = true
