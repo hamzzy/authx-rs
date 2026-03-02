@@ -1,7 +1,7 @@
 # authx-rs
 
 [![Crates.io](https://img.shields.io/crates/v/authx-core.svg)](https://crates.io/crates/authx-core)
-[![docs.rs](https://docs.rs/authx-core/badge.svg)](https://docs.rs/authx-core)
+[![docs.rs](https://docs.rs/authx-core/badge.svg)](https://authx-rs.hamat-ibrahim3.workers.dev)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/hamzzy/authx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/hamzzy/authx-rs/actions)
 
