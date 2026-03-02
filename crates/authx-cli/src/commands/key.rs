@@ -93,10 +93,7 @@ async fn list(args: ListArgs) -> Result<()> {
         return Ok(());
     }
 
-    println!(
-        "{:<38} {:<10} {:<24} {}",
-        "Key ID", "Prefix", "Name", "Expires"
-    );
+    println!("{:<38} {:<10} {:<24} Expires", "Key ID", "Prefix", "Name");
     println!("{}", "-".repeat(90));
     for k in &keys {
         let exp = k.expires_at.map_or("never".into(), |t| t.to_rfc3339());

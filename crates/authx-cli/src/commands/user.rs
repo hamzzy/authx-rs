@@ -52,7 +52,7 @@ async fn list(args: ListArgs) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<38} {:<32} {}", "ID", "Email", "Verified");
+    println!("{:<38} {:<32} Verified", "ID", "Email");
     println!("{}", "-".repeat(80));
     for u in &users {
         println!("{:<38} {:<32} {}", u.id, u.email, u.email_verified);
