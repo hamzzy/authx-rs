@@ -42,118 +42,178 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
-      # publish_crate NAME VERSION
-      # - Skips publish if the version is already on crates.io (idempotent).
-      # - After a new publish, sleeps 10 min for the new-crate rate-limit window,
-      #   then polls the sparse index until the version appears (max 6 min extra).
-      # Safe to re-run after a partial failure without manual cleanup.
+      # crates_io_has NAME VERSION
+      # Queries the crates.io JSON API — anchored to the exact crate name and version.
+      # Returns 0 (true) if the version is already indexed, 1 (false) otherwise.
+      # This avoids false positives from `cargo info` which shows local workspace versions
+      # and includes dependency version strings that match the grep pattern.
+      #
+      # Publish order: authx-core → authx-storage → authx-plugins → authx-axum → authx-dashboard → authx-cli
+      # Each step is idempotent: safe to re-run after a partial failure.
+      # After a new publish, sleeps 10 min for the crates.io new-crate rate-limit window,
+      # then polls until the version appears in the API (max 6 min).
 
       - name: Publish authx-core
         run: |
+          NAME=authx-core
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-core']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-core 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-core $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-core
+            cargo publish -p "$NAME"
             echo "sleeping 10 min for crates.io new-crate rate-limit..."
             sleep 600
           fi
           for i in $(seq 1 18); do
-            cargo info authx-core 2>/dev/null | grep -q "$VERSION" && echo "authx-core $VERSION indexed" && exit 0
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
             echo "waiting for index... ($i/18)"; sleep 20
           done
-          echo "timed out waiting for authx-core" && exit 1
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
       - name: Publish authx-storage
         run: |
+          NAME=authx-storage
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-storage']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-storage 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-storage $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-storage
+            cargo publish -p "$NAME"
             echo "sleeping 10 min for crates.io new-crate rate-limit..."
             sleep 600
           fi
           for i in $(seq 1 18); do
-            cargo info authx-storage 2>/dev/null | grep -q "$VERSION" && echo "authx-storage $VERSION indexed" && exit 0
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
             echo "waiting for index... ($i/18)"; sleep 20
           done
-          echo "timed out waiting for authx-storage" && exit 1
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
       - name: Publish authx-plugins
         run: |
+          NAME=authx-plugins
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-plugins']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-plugins 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-plugins $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-plugins
+            cargo publish -p "$NAME"
             echo "sleeping 10 min for crates.io new-crate rate-limit..."
             sleep 600
           fi
           for i in $(seq 1 18); do
-            cargo info authx-plugins 2>/dev/null | grep -q "$VERSION" && echo "authx-plugins $VERSION indexed" && exit 0
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
             echo "waiting for index... ($i/18)"; sleep 20
           done
-          echo "timed out waiting for authx-plugins" && exit 1
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
       - name: Publish authx-axum
         run: |
+          NAME=authx-axum
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-axum']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-axum 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-axum $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-axum
+            cargo publish -p "$NAME"
             echo "sleeping 10 min for crates.io new-crate rate-limit..."
             sleep 600
           fi
           for i in $(seq 1 18); do
-            cargo info authx-axum 2>/dev/null | grep -q "$VERSION" && echo "authx-axum $VERSION indexed" && exit 0
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
             echo "waiting for index... ($i/18)"; sleep 20
           done
-          echo "timed out waiting for authx-axum" && exit 1
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
       - name: Publish authx-dashboard
         run: |
+          NAME=authx-dashboard
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-dashboard']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-dashboard 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-dashboard $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-dashboard
+            cargo publish -p "$NAME"
             echo "sleeping 10 min for crates.io new-crate rate-limit..."
             sleep 600
           fi
           for i in $(seq 1 18); do
-            cargo info authx-dashboard 2>/dev/null | grep -q "$VERSION" && echo "authx-dashboard $VERSION indexed" && exit 0
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
             echo "waiting for index... ($i/18)"; sleep 20
           done
-          echo "timed out waiting for authx-dashboard" && exit 1
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
       - name: Publish authx-cli
         run: |
+          NAME=authx-cli
           VERSION=$(cargo metadata --no-deps --format-version 1 | python3 -c "
           import json,sys
-          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='authx-cli']
+          pkgs=[p for p in json.load(sys.stdin)['packages'] if p['name']=='$NAME']
           print(pkgs[0]['version'])")
-          if cargo info authx-cli 2>/dev/null | grep -q "$VERSION"; then
-            echo "authx-cli $VERSION already published — skipping"
+          crates_io_has() {
+            local v
+            v=$(curl -sf "https://crates.io/api/v1/crates/$NAME/$1" \
+                  -H "User-Agent: authx-release/$1 (github-actions)" \
+                | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',{}).get('num',''))" 2>/dev/null)
+            [ "$v" = "$1" ]
+          }
+          if crates_io_has "$VERSION"; then
+            echo "$NAME $VERSION already on crates.io — skipping publish"
           else
-            cargo publish -p authx-cli
+            cargo publish -p "$NAME"
+            echo "sleeping 10 min for crates.io new-crate rate-limit..."
+            sleep 600
           fi
+          for i in $(seq 1 18); do
+            crates_io_has "$VERSION" && echo "$NAME $VERSION indexed" && exit 0
+            echo "waiting for index... ($i/18)"; sleep 20
+          done
+          echo "timed out waiting for $NAME $VERSION" && exit 1
 
   github-release:
     name: GitHub Release
