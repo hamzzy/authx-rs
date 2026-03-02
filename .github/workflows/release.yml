@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
+      - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # RUSTSEC-2023-0071: rsa via sqlx-macros-core → sqlx-mysql (unconditional in sqlx 0.8)
@@ -35,8 +35,6 @@ jobs:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     needs: [test, audit]
-    # Remove `environment: crates-io` if you haven't created that environment
-    # in GitHub repo settings — it blocks the job otherwise.
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -49,9 +47,12 @@ jobs:
 
       - name: Wait for authx-core index
         run: |
-          for i in $(seq 1 12); do
-            cargo search authx-core 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-core indexed"; exit 0; }
-            echo "waiting... ($i/12)"
+          for i in $(seq 1 18); do
+            if cargo info authx-core 2>/dev/null | grep -q "0\.1\.0"; then
+              echo "authx-core indexed"
+              exit 0
+            fi
+            echo "waiting... ($i/18)"
             sleep 20
           done
           echo "timed out waiting for authx-core" && exit 1
@@ -63,9 +64,12 @@ jobs:
 
       - name: Wait for authx-storage index
         run: |
-          for i in $(seq 1 12); do
-            cargo search authx-storage 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-storage indexed"; exit 0; }
-            echo "waiting... ($i/12)"
+          for i in $(seq 1 18); do
+            if cargo info authx-storage 2>/dev/null | grep -q "0\.1\.0"; then
+              echo "authx-storage indexed"
+              exit 0
+            fi
+            echo "waiting... ($i/18)"
             sleep 20
           done
           echo "timed out waiting for authx-storage" && exit 1
@@ -77,9 +81,12 @@ jobs:
 
       - name: Wait for authx-plugins index
         run: |
-          for i in $(seq 1 12); do
-            cargo search authx-plugins 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-plugins indexed"; exit 0; }
-            echo "waiting... ($i/12)"
+          for i in $(seq 1 18); do
+            if cargo info authx-plugins 2>/dev/null | grep -q "0\.1\.0"; then
+              echo "authx-plugins indexed"
+              exit 0
+            fi
+            echo "waiting... ($i/18)"
             sleep 20
           done
           echo "timed out waiting for authx-plugins" && exit 1
@@ -91,9 +98,12 @@ jobs:
 
       - name: Wait for authx-axum index
         run: |
-          for i in $(seq 1 12); do
-            cargo search authx-axum 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-axum indexed"; exit 0; }
-            echo "waiting... ($i/12)"
+          for i in $(seq 1 18); do
+            if cargo info authx-axum 2>/dev/null | grep -q "0\.1\.0"; then
+              echo "authx-axum indexed"
+              exit 0
+            fi
+            echo "waiting... ($i/18)"
             sleep 20
           done
           echo "timed out waiting for authx-axum" && exit 1
@@ -102,6 +112,18 @@ jobs:
         run: cargo publish -p authx-dashboard
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Wait for authx-dashboard index
+        run: |
+          for i in $(seq 1 18); do
+            if cargo info authx-dashboard 2>/dev/null | grep -q "0\.1\.0"; then
+              echo "authx-dashboard indexed"
+              exit 0
+            fi
+            echo "waiting... ($i/18)"
+            sleep 20
+          done
+          echo "timed out waiting for authx-dashboard" && exit 1
 
       - name: Publish authx-cli
         run: cargo publish -p authx-cli
@@ -132,9 +154,9 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2.2.2
         with:
           name: "authx-rs v${{ steps.version.outputs.version }}"
-          body: ${{ steps.changelog.outputs.notes }}
+          body: "${{ steps.changelog.outputs.notes }}"
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
