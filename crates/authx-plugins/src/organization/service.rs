@@ -7,6 +7,7 @@ use authx_core::{
     error::{AuthError, Result},
     events::{AuthEvent, EventBus},
     models::{CreateInvite, CreateOrg, Invite, Membership, Organization, Role},
+    validation::validate_slug,
 };
 use authx_storage::ports::{
     AuditLogRepository, InviteRepository, OrgRepository, SessionRepository,
@@ -53,6 +54,7 @@ where
         slug: String,
         metadata: Option<serde_json::Value>,
     ) -> Result<(Organization, Membership)> {
+        validate_slug(&slug)?;
         let org = OrgRepository::create(
             &self.storage,
             CreateOrg {

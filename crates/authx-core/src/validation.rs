@@ -13,6 +13,26 @@ pub fn validate_email(email: &str) -> Result<()> {
     }
 }
 
+/// Validate that `slug` is a valid org slug: lowercase alphanumeric and hyphens,
+/// 2–63 characters, must not start or end with a hyphen.
+pub fn validate_slug(slug: &str) -> Result<()> {
+    let ok = !slug.is_empty()
+        && slug.len() >= 2
+        && slug.len() <= 63
+        && slug
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        && !slug.starts_with('-')
+        && !slug.ends_with('-');
+    if ok {
+        Ok(())
+    } else {
+        Err(AuthError::Internal(format!(
+            "invalid org slug '{slug}': must be 2–63 lowercase alphanumeric/hyphen characters, not starting or ending with a hyphen"
+        )))
+    }
+}
+
 /// Validate password meets minimum security requirements:
 /// - At least `min_len` characters
 /// - At least one uppercase letter
@@ -40,6 +60,24 @@ pub fn validate_password(password: &str, min_len: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn valid_slug_passes() {
+        assert!(validate_slug("my-org").is_ok());
+        assert!(validate_slug("acme").is_ok());
+        assert!(validate_slug("org-123").is_ok());
+    }
+
+    #[test]
+    fn invalid_slug_rejected() {
+        assert!(validate_slug("").is_err());
+        assert!(validate_slug("a").is_err()); // too short
+        assert!(validate_slug("-leading").is_err());
+        assert!(validate_slug("trailing-").is_err());
+        assert!(validate_slug("has space").is_err());
+        assert!(validate_slug("UPPER").is_err());
+        assert!(validate_slug(&"a".repeat(64)).is_err()); // too long
+    }
 
     #[test]
     fn valid_email_passes() {

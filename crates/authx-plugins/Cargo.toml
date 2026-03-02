@@ -41,6 +41,6 @@ tokio.workspace = true
 redis-tokens = ["dep:redis"]
 
 [dependencies.redis]
-version  = "0.26"
+version  = "1.0.4"
 features = ["aio", "tokio-comp"]
 optional = true

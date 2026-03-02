@@ -6,9 +6,9 @@ pub mod identity;
 pub mod models;
 pub mod policy;
 
-pub use brute_force::{LockoutConfig, LoginAttemptTracker};
+pub use brute_force::{KeyedRateLimiter, LockoutConfig, LoginAttemptTracker};
 pub use crypto::KeyRotationStore;
 pub use error::{AuthError, Result, StorageError};
 pub use identity::Identity;
 pub mod validation;
-pub use validation::{validate_email, validate_password};
+pub use validation::{validate_email, validate_password, validate_slug};

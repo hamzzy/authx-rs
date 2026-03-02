@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use rand::Rng;
 use tracing::instrument;
 use uuid::Uuid;
@@ -9,6 +9,9 @@ use authx_core::{
     models::{ApiKey, CreateApiKey},
 };
 use authx_storage::ports::{ApiKeyRepository, UserRepository};
+
+/// Maximum lifetime for an API key.
+const MAX_KEY_TTL: Duration = Duration::days(365);
 
 /// Returned when an API key is first created — the `raw_key` is shown once only.
 #[derive(Debug)]
@@ -32,6 +35,8 @@ where
     /// Create a new API key for `user_id`. Returns the `ApiKey` row and the
     /// raw key (hex-encoded 32 random bytes). The raw key is **never stored**;
     /// only the SHA-256 hash is persisted.
+    ///
+    /// `expires_at` is required and must be at most [`MAX_KEY_TTL`] (365 days) in the future.
     #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn create(
         &self,
@@ -39,8 +44,22 @@ where
         org_id: Option<Uuid>,
         name: String,
         scopes: Vec<String>,
-        expires_at: Option<DateTime<Utc>>,
+        expires_at: DateTime<Utc>,
     ) -> Result<ApiKeyResponse> {
+        let now = Utc::now();
+        if expires_at <= now {
+            return Err(AuthError::Internal(
+                "api key expiry must be in the future".into(),
+            ));
+        }
+        let max_expiry = now + MAX_KEY_TTL;
+        if expires_at > max_expiry {
+            return Err(AuthError::Internal(format!(
+                "api key expiry exceeds maximum allowed ({} days)",
+                MAX_KEY_TTL.num_days()
+            )));
+        }
+
         // Verify user exists.
         UserRepository::find_by_id(&self.storage, user_id)
             .await?
@@ -60,7 +79,7 @@ where
                 prefix,
                 name,
                 scopes,
-                expires_at,
+                expires_at: Some(expires_at),
             },
         )
         .await?;

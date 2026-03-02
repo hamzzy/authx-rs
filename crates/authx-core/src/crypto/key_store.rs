@@ -72,7 +72,13 @@ impl KeyRotationStore {
             encoding,
             decoding,
         };
-        let mut inner = match self.inner.write() { Ok(g) => g, Err(e) => { tracing::error!("key store write-lock poisoned — recovering"); e.into_inner() } };
+        let mut inner = match self.inner.write() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("key store write-lock poisoned — recovering");
+                e.into_inner()
+            }
+        };
         inner.keys.push(version);
 
         // Enforce max_keys by evicting the oldest.
@@ -98,7 +104,13 @@ impl KeyRotationStore {
 
     /// Drop the oldest key version (call after old tokens have expired).
     pub fn prune_oldest(&self) {
-        let mut inner = match self.inner.write() { Ok(g) => g, Err(e) => { tracing::error!("key store write-lock poisoned — recovering"); e.into_inner() } };
+        let mut inner = match self.inner.write() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("key store write-lock poisoned — recovering");
+                e.into_inner()
+            }
+        };
         if inner.keys.len() > 1 {
             let removed = inner.keys.remove(0);
             tracing::info!(kid = %removed.kid, "oldest key version pruned");
@@ -115,7 +127,13 @@ impl KeyRotationStore {
     ) -> Result<String> {
         use chrono::Utc;
 
-        let inner = match self.inner.read() { Ok(g) => g, Err(e) => { tracing::error!("key store read-lock poisoned — recovering"); e.into_inner() } };
+        let inner = match self.inner.read() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("key store read-lock poisoned — recovering");
+                e.into_inner()
+            }
+        };
         let kv = inner
             .keys
             .last()
@@ -144,7 +162,13 @@ impl KeyRotationStore {
     /// Verify a JWT against *all* retained key versions (newest first).
     #[instrument(skip(self, token))]
     pub fn verify(&self, token: &str) -> Result<Claims> {
-        let inner = match self.inner.read() { Ok(g) => g, Err(e) => { tracing::error!("key store read-lock poisoned — recovering"); e.into_inner() } };
+        let inner = match self.inner.read() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("key store read-lock poisoned — recovering");
+                e.into_inner()
+            }
+        };
 
         let mut validation = Validation::new(Algorithm::EdDSA);
         validation.validate_exp = true;

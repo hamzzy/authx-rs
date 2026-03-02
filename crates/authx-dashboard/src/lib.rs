@@ -19,7 +19,6 @@ mod html;
 use std::sync::Arc;
 
 use authx_core::events::EventBus;
-use subtle::ConstantTimeEq;
 use authx_plugins::AdminService;
 use authx_storage::ports::{AuditLogRepository, OrgRepository, SessionRepository, UserRepository};
 use axum::{
@@ -29,6 +28,7 @@ use axum::{
     response::Response,
     Router,
 };
+use subtle::ConstantTimeEq;
 
 /// Shared state threaded through every dashboard route.
 #[derive(Clone)]

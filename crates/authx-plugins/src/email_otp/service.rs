@@ -4,6 +4,7 @@ use chrono::Utc;
 use tracing::instrument;
 
 use authx_core::{
+    brute_force::KeyedRateLimiter,
     crypto::sha256_hex,
     error::{AuthError, Result},
     events::{AuthEvent, EventBus},
@@ -12,6 +13,10 @@ use authx_core::{
 use authx_storage::ports::{SessionRepository, UserRepository};
 
 use crate::one_time_token::{OneTimeTokenStore, TokenKind};
+
+/// Maximum OTP requests per email per 10-minute window before throttling.
+const ISSUE_RATE_MAX: u32 = 3;
+const ISSUE_RATE_WINDOW: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug)]
 pub struct EmailOtpVerifyResponse {
@@ -25,12 +30,14 @@ pub struct EmailOtpVerifyResponse {
 ///
 /// # Flow
 /// 1. `issue(email)` → raw token (send in email). Returns `None` for unknown emails.
+///    Rate-limited to [`ISSUE_RATE_MAX`] requests per email per 10-minute window.
 /// 2. `verify(raw_token, ip)` → session created, `EmailOtpVerifyResponse` returned.
 pub struct EmailOtpService<S> {
     storage: S,
     events: EventBus,
     token_store: OneTimeTokenStore,
     session_ttl_secs: i64,
+    issue_limiter: KeyedRateLimiter,
 }
 
 impl<S> EmailOtpService<S>
@@ -43,13 +50,19 @@ where
             events,
             token_store: OneTimeTokenStore::new(Duration::from_secs(10 * 60)),
             session_ttl_secs,
+            issue_limiter: KeyedRateLimiter::new(ISSUE_RATE_MAX, ISSUE_RATE_WINDOW),
         }
     }
 
     /// Issue an OTP token for the given email. Returns `None` for unknown emails
-    /// (avoids user enumeration).
+    /// (avoids user enumeration). Rate-limited per email address.
     #[instrument(skip(self), fields(email = %email))]
     pub async fn issue(&self, email: &str) -> Result<Option<String>> {
+        if !self.issue_limiter.check_and_record(email) {
+            tracing::warn!(email = %email, "email otp issue rate limit exceeded");
+            return Err(AuthError::AccountLocked);
+        }
+
         let user = match UserRepository::find_by_email(&self.storage, email).await? {
             Some(u) => u,
             None => {

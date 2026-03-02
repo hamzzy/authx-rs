@@ -54,3 +54,25 @@ async fn verify_is_single_use() {
     svc.verify(&token, "127.0.0.1").await.unwrap();
     assert!(svc.verify(&token, "127.0.0.1").await.is_err());
 }
+
+#[tokio::test]
+async fn issue_rate_limited_after_max_requests() {
+    let store = MemoryStore::new();
+    add_user(&store).await;
+    let svc = setup(store);
+
+    // ISSUE_RATE_MAX is 3; first 3 calls succeed.
+    for _ in 0..3 {
+        svc.issue("otp@example.com").await.unwrap();
+    }
+
+    // 4th call within the same window must be rejected.
+    let err = svc
+        .issue("otp@example.com")
+        .await
+        .expect_err("4th issue should be rate-limited");
+    assert!(
+        matches!(err, authx_core::error::AuthError::AccountLocked),
+        "got: {err:?}"
+    );
+}

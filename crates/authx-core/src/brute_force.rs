@@ -53,7 +53,13 @@ impl LoginAttemptTracker {
     /// Returns `true` if the key is currently locked out.
     pub fn is_locked(&self, key: &str) -> bool {
         let now = Instant::now();
-        let map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
+        let map = match self.inner.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("lockout tracker mutex poisoned — recovering");
+                e.into_inner()
+            }
+        };
         match map.get(key) {
             None => false,
             Some(rec) => {
@@ -69,7 +75,13 @@ impl LoginAttemptTracker {
     /// Record a failed attempt. Call this when credentials are wrong.
     pub fn record_failure(&self, key: &str) {
         let now = Instant::now();
-        let mut map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
+        let mut map = match self.inner.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("lockout tracker mutex poisoned — recovering");
+                e.into_inner()
+            }
+        };
         let rec = map.entry(key.to_owned()).or_insert(FailureRecord {
             count: 0,
             window_start: now,
@@ -92,8 +104,72 @@ impl LoginAttemptTracker {
 
     /// Reset the failure counter on successful sign-in.
     pub fn record_success(&self, key: &str) {
-        let mut map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
+        let mut map = match self.inner.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("lockout tracker mutex poisoned — recovering");
+                e.into_inner()
+            }
+        };
         map.remove(key);
         tracing::debug!(key = key, "login success — failure counter cleared");
+    }
+}
+
+// ── Per-key request rate limiter ──────────────────────────────────────────────
+
+/// Sliding-window rate limiter keyed by an arbitrary string (e.g. email or IP).
+///
+/// Returns `true` from [`Self::check_and_record`] when the request is allowed,
+/// `false` when the caller has exceeded `max_requests` within `window`.
+#[derive(Clone)]
+pub struct KeyedRateLimiter {
+    inner: Arc<Mutex<HashMap<String, RateRecord>>>,
+    max_requests: u32,
+    window: Duration,
+}
+
+struct RateRecord {
+    count: u32,
+    window_start: Instant,
+}
+
+impl KeyedRateLimiter {
+    pub fn new(max_requests: u32, window: Duration) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            max_requests,
+            window,
+        }
+    }
+
+    /// Returns `true` if the request should be allowed, `false` if rate-limited.
+    pub fn check_and_record(&self, key: &str) -> bool {
+        let now = Instant::now();
+        let mut map = match self.inner.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("rate-limiter mutex poisoned — recovering");
+                e.into_inner()
+            }
+        };
+        let rec = map.entry(key.to_owned()).or_insert(RateRecord {
+            count: 0,
+            window_start: now,
+        });
+
+        if now.duration_since(rec.window_start) >= self.window {
+            rec.window_start = now;
+            rec.count = 1;
+            return true;
+        }
+
+        if rec.count >= self.max_requests {
+            tracing::warn!(key = key, count = rec.count, "rate limit exceeded");
+            return false;
+        }
+
+        rec.count += 1;
+        true
     }
 }

@@ -50,7 +50,43 @@ pub struct ServeArgs {
     lockout_minutes: u64,
 }
 
+fn validate_args(args: &ServeArgs) -> Result<()> {
+    if args.bind.is_empty() {
+        anyhow::bail!("AUTHX_BIND must not be empty");
+    }
+    if args.session_ttl == 0 {
+        anyhow::bail!("AUTHX_SESSION_TTL must be greater than zero");
+    }
+    if args.rate_limit == 0 {
+        anyhow::bail!("AUTHX_RATE_LIMIT must be greater than zero");
+    }
+    if args.lockout_failures == 0 {
+        anyhow::bail!("AUTHX_LOCKOUT_FAILURES must be greater than zero");
+    }
+    if args.lockout_minutes == 0 {
+        anyhow::bail!("AUTHX_LOCKOUT_MINUTES must be greater than zero");
+    }
+    let origins_valid = args
+        .trusted_origins
+        .split(',')
+        .any(|s| !s.trim().is_empty());
+    if !origins_valid {
+        anyhow::bail!("AUTHX_TRUSTED_ORIGINS must contain at least one origin");
+    }
+    Ok(())
+}
+
 pub async fn run(args: ServeArgs) -> Result<()> {
+    validate_args(&args)?;
+    tracing::debug!(
+        bind = %args.bind,
+        session_ttl = args.session_ttl,
+        rate_limit = args.rate_limit,
+        lockout_failures = args.lockout_failures,
+        lockout_minutes = args.lockout_minutes,
+        "startup config validated"
+    );
+
     let origins: Vec<String> = args
         .trusted_origins
         .split(',')

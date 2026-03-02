@@ -22,6 +22,40 @@ use crate::ports::{
     OAuthAccountRepository, OrgRepository, SessionRepository, UserRepository,
 };
 
+/// Acquire a read guard, recovering from a poisoned lock instead of panicking.
+macro_rules! rlock {
+    ($lock:expr, $label:literal) => {
+        match $lock.read() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!(concat!(
+                    "memory store read-lock poisoned (",
+                    $label,
+                    ") — recovering"
+                ));
+                e.into_inner()
+            }
+        }
+    };
+}
+
+/// Acquire a write guard, recovering from a poisoned lock instead of panicking.
+macro_rules! wlock {
+    ($lock:expr, $label:literal) => {
+        match $lock.write() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!(concat!(
+                    "memory store write-lock poisoned (",
+                    $label,
+                    ") — recovering"
+                ));
+                e.into_inner()
+            }
+        }
+    };
+}
+
 #[derive(Clone, Default)]
 pub struct MemoryStore {
     users: Arc<RwLock<HashMap<Uuid, User>>>,
@@ -47,31 +81,25 @@ impl MemoryStore {
 #[async_trait]
 impl UserRepository for MemoryStore {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>> {
-        Ok(self.users.read().unwrap().get(&id).cloned())
+        Ok(rlock!(self.users, "users").get(&id).cloned())
     }
 
     async fn find_by_email(&self, email: &str) -> Result<Option<User>> {
-        Ok(self
-            .users
-            .read()
-            .unwrap()
+        Ok(rlock!(self.users, "users")
             .values()
             .find(|u| u.email == email)
             .cloned())
     }
 
     async fn find_by_username(&self, username: &str) -> Result<Option<User>> {
-        Ok(self
-            .users
-            .read()
-            .unwrap()
+        Ok(rlock!(self.users, "users")
             .values()
             .find(|u| u.username.as_deref() == Some(username))
             .cloned())
     }
 
     async fn list(&self, offset: u32, limit: u32) -> Result<Vec<User>> {
-        let users = self.users.read().unwrap();
+        let users = rlock!(self.users, "users");
         let mut sorted: Vec<User> = users.values().cloned().collect();
         sorted.sort_by_key(|u| u.created_at);
         Ok(sorted
@@ -82,7 +110,7 @@ impl UserRepository for MemoryStore {
     }
 
     async fn create(&self, data: CreateUser) -> Result<User> {
-        let mut users = self.users.write().unwrap();
+        let mut users = wlock!(self.users, "users");
         if users.values().any(|u| u.email == data.email) {
             return Err(AuthError::EmailTaken);
         }
@@ -111,7 +139,7 @@ impl UserRepository for MemoryStore {
     }
 
     async fn update(&self, id: Uuid, data: UpdateUser) -> Result<User> {
-        let mut users = self.users.write().unwrap();
+        let mut users = wlock!(self.users, "users");
         let user = users.get_mut(&id).ok_or(AuthError::UserNotFound)?;
         if let Some(email) = data.email {
             user.email = email;
@@ -130,9 +158,7 @@ impl UserRepository for MemoryStore {
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
-        self.users
-            .write()
-            .unwrap()
+        wlock!(self.users, "users")
             .remove(&id)
             .ok_or(AuthError::UserNotFound)?;
         Ok(())
@@ -154,28 +180,19 @@ impl SessionRepository for MemoryStore {
             expires_at: data.expires_at,
             created_at: Utc::now(),
         };
-        self.sessions
-            .write()
-            .unwrap()
-            .insert(session.id, session.clone());
+        wlock!(self.sessions, "sessions").insert(session.id, session.clone());
         Ok(session)
     }
 
     async fn find_by_token_hash(&self, hash: &str) -> Result<Option<Session>> {
-        Ok(self
-            .sessions
-            .read()
-            .unwrap()
+        Ok(rlock!(self.sessions, "sessions")
             .values()
             .find(|s| s.token_hash == hash && s.expires_at > Utc::now())
             .cloned())
     }
 
     async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<Session>> {
-        Ok(self
-            .sessions
-            .read()
-            .unwrap()
+        Ok(rlock!(self.sessions, "sessions")
             .values()
             .filter(|s| s.user_id == user_id)
             .cloned()
@@ -183,24 +200,19 @@ impl SessionRepository for MemoryStore {
     }
 
     async fn invalidate(&self, session_id: Uuid) -> Result<()> {
-        self.sessions
-            .write()
-            .unwrap()
+        wlock!(self.sessions, "sessions")
             .remove(&session_id)
             .ok_or(AuthError::Storage(StorageError::NotFound))?;
         Ok(())
     }
 
     async fn invalidate_all_for_user(&self, user_id: Uuid) -> Result<()> {
-        self.sessions
-            .write()
-            .unwrap()
-            .retain(|_, s| s.user_id != user_id);
+        wlock!(self.sessions, "sessions").retain(|_, s| s.user_id != user_id);
         Ok(())
     }
 
     async fn set_org(&self, session_id: Uuid, org_id: Option<Uuid>) -> Result<Session> {
-        let mut sessions = self.sessions.write().unwrap();
+        let mut sessions = wlock!(self.sessions, "sessions");
         let session = sessions
             .get_mut(&session_id)
             .ok_or(AuthError::Storage(StorageError::NotFound))?;
@@ -221,15 +233,12 @@ impl CredentialRepository for MemoryStore {
             credential_hash: data.credential_hash,
             metadata: data.metadata.unwrap_or(serde_json::Value::Null),
         };
-        self.credentials.write().unwrap().push(cred.clone());
+        wlock!(self.credentials, "credentials").push(cred.clone());
         Ok(cred)
     }
 
     async fn find_password_hash(&self, user_id: Uuid) -> Result<Option<String>> {
-        Ok(self
-            .credentials
-            .read()
-            .unwrap()
+        Ok(rlock!(self.credentials, "credentials")
             .iter()
             .find(|c| c.user_id == user_id && c.kind == CredentialKind::Password)
             .map(|c| c.credential_hash.clone()))
@@ -240,17 +249,14 @@ impl CredentialRepository for MemoryStore {
         user_id: Uuid,
         kind: CredentialKind,
     ) -> Result<Option<Credential>> {
-        Ok(self
-            .credentials
-            .read()
-            .unwrap()
+        Ok(rlock!(self.credentials, "credentials")
             .iter()
             .find(|c| c.user_id == user_id && c.kind == kind)
             .cloned())
     }
 
     async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()> {
-        let mut creds = self.credentials.write().unwrap();
+        let mut creds = wlock!(self.credentials, "credentials");
         let before = creds.len();
         creds.retain(|c| !(c.user_id == user_id && c.kind == kind));
         if creds.len() == before {
@@ -265,7 +271,7 @@ impl CredentialRepository for MemoryStore {
 #[async_trait]
 impl OrgRepository for MemoryStore {
     async fn create(&self, data: CreateOrg) -> Result<Organization> {
-        let mut orgs = self.orgs.write().unwrap();
+        let mut orgs = wlock!(self.orgs, "orgs");
         if orgs.values().any(|o| o.slug == data.slug) {
             return Err(AuthError::Storage(StorageError::Conflict(format!(
                 "slug '{}' already taken",
@@ -284,24 +290,18 @@ impl OrgRepository for MemoryStore {
     }
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<Organization>> {
-        Ok(self.orgs.read().unwrap().get(&id).cloned())
+        Ok(rlock!(self.orgs, "orgs").get(&id).cloned())
     }
 
     async fn find_by_slug(&self, slug: &str) -> Result<Option<Organization>> {
-        Ok(self
-            .orgs
-            .read()
-            .unwrap()
+        Ok(rlock!(self.orgs, "orgs")
             .values()
             .find(|o| o.slug == slug)
             .cloned())
     }
 
     async fn add_member(&self, org_id: Uuid, user_id: Uuid, role_id: Uuid) -> Result<Membership> {
-        let role = self
-            .roles
-            .read()
-            .unwrap()
+        let role = rlock!(self.roles, "roles")
             .get(&role_id)
             .cloned()
             .ok_or(AuthError::Storage(StorageError::NotFound))?;
@@ -312,12 +312,12 @@ impl OrgRepository for MemoryStore {
             role,
             created_at: Utc::now(),
         };
-        self.memberships.write().unwrap().push(membership.clone());
+        wlock!(self.memberships, "memberships").push(membership.clone());
         Ok(membership)
     }
 
     async fn remove_member(&self, org_id: Uuid, user_id: Uuid) -> Result<()> {
-        let mut memberships = self.memberships.write().unwrap();
+        let mut memberships = wlock!(self.memberships, "memberships");
         let before = memberships.len();
         memberships.retain(|m| !(m.org_id == org_id && m.user_id == user_id));
         if memberships.len() == before {
@@ -327,10 +327,7 @@ impl OrgRepository for MemoryStore {
     }
 
     async fn get_members(&self, org_id: Uuid) -> Result<Vec<Membership>> {
-        Ok(self
-            .memberships
-            .read()
-            .unwrap()
+        Ok(rlock!(self.memberships, "memberships")
             .iter()
             .filter(|m| m.org_id == org_id)
             .cloned()
@@ -338,10 +335,7 @@ impl OrgRepository for MemoryStore {
     }
 
     async fn find_roles(&self, org_id: Uuid) -> Result<Vec<Role>> {
-        Ok(self
-            .roles
-            .read()
-            .unwrap()
+        Ok(rlock!(self.roles, "roles")
             .values()
             .filter(|r| r.org_id == org_id)
             .cloned()
@@ -360,7 +354,7 @@ impl OrgRepository for MemoryStore {
             name,
             permissions,
         };
-        self.roles.write().unwrap().insert(role.id, role.clone());
+        wlock!(self.roles, "roles").insert(role.id, role.clone());
         Ok(role)
     }
 
@@ -370,15 +364,12 @@ impl OrgRepository for MemoryStore {
         user_id: Uuid,
         role_id: Uuid,
     ) -> Result<Membership> {
-        let role = self
-            .roles
-            .read()
-            .unwrap()
+        let role = rlock!(self.roles, "roles")
             .get(&role_id)
             .cloned()
             .ok_or(AuthError::Storage(StorageError::NotFound))?;
 
-        let mut memberships = self.memberships.write().unwrap();
+        let mut memberships = wlock!(self.memberships, "memberships");
         let m = memberships
             .iter_mut()
             .find(|m| m.org_id == org_id && m.user_id == user_id)
@@ -404,15 +395,12 @@ impl AuditLogRepository for MemoryStore {
             metadata: entry.metadata.unwrap_or(serde_json::Value::Null),
             created_at: Utc::now(),
         };
-        self.audit_logs.write().unwrap().push(log.clone());
+        wlock!(self.audit_logs, "audit_logs").push(log.clone());
         Ok(log)
     }
 
     async fn find_by_user(&self, user_id: Uuid, limit: u32) -> Result<Vec<AuditLog>> {
-        Ok(self
-            .audit_logs
-            .read()
-            .unwrap()
+        Ok(rlock!(self.audit_logs, "audit_logs")
             .iter()
             .filter(|l| l.user_id == Some(user_id))
             .take(limit as usize)
@@ -421,10 +409,7 @@ impl AuditLogRepository for MemoryStore {
     }
 
     async fn find_by_org(&self, org_id: Uuid, limit: u32) -> Result<Vec<AuditLog>> {
-        Ok(self
-            .audit_logs
-            .read()
-            .unwrap()
+        Ok(rlock!(self.audit_logs, "audit_logs")
             .iter()
             .filter(|l| l.org_id == Some(org_id))
             .take(limit as usize)
@@ -449,25 +434,19 @@ impl ApiKeyRepository for MemoryStore {
             expires_at: data.expires_at,
             last_used_at: None,
         };
-        self.api_keys.write().unwrap().push(key.clone());
+        wlock!(self.api_keys, "api_keys").push(key.clone());
         Ok(key)
     }
 
     async fn find_by_hash(&self, key_hash: &str) -> Result<Option<ApiKey>> {
-        Ok(self
-            .api_keys
-            .read()
-            .unwrap()
+        Ok(rlock!(self.api_keys, "api_keys")
             .iter()
             .find(|k| k.key_hash == key_hash)
             .cloned())
     }
 
     async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<ApiKey>> {
-        Ok(self
-            .api_keys
-            .read()
-            .unwrap()
+        Ok(rlock!(self.api_keys, "api_keys")
             .iter()
             .filter(|k| k.user_id == user_id)
             .cloned()
@@ -475,7 +454,7 @@ impl ApiKeyRepository for MemoryStore {
     }
 
     async fn revoke(&self, key_id: Uuid, user_id: Uuid) -> Result<()> {
-        let mut keys = self.api_keys.write().unwrap();
+        let mut keys = wlock!(self.api_keys, "api_keys");
         let before = keys.len();
         keys.retain(|k| !(k.id == key_id && k.user_id == user_id));
         if keys.len() == before {
@@ -485,7 +464,7 @@ impl ApiKeyRepository for MemoryStore {
     }
 
     async fn touch_last_used(&self, key_id: Uuid, at: chrono::DateTime<Utc>) -> Result<()> {
-        let mut keys = self.api_keys.write().unwrap();
+        let mut keys = wlock!(self.api_keys, "api_keys");
         if let Some(k) = keys.iter_mut().find(|k| k.id == key_id) {
             k.last_used_at = Some(at);
         }
@@ -498,7 +477,7 @@ impl ApiKeyRepository for MemoryStore {
 #[async_trait]
 impl OAuthAccountRepository for MemoryStore {
     async fn upsert(&self, data: UpsertOAuthAccount) -> Result<OAuthAccount> {
-        let mut accounts = self.oauth_accounts.write().unwrap();
+        let mut accounts = wlock!(self.oauth_accounts, "oauth_accounts");
         if let Some(existing) = accounts
             .iter_mut()
             .find(|a| a.provider == data.provider && a.provider_user_id == data.provider_user_id)
@@ -526,20 +505,14 @@ impl OAuthAccountRepository for MemoryStore {
         provider: &str,
         provider_user_id: &str,
     ) -> Result<Option<OAuthAccount>> {
-        Ok(self
-            .oauth_accounts
-            .read()
-            .unwrap()
+        Ok(rlock!(self.oauth_accounts, "oauth_accounts")
             .iter()
             .find(|a| a.provider == provider && a.provider_user_id == provider_user_id)
             .cloned())
     }
 
     async fn find_by_user(&self, user_id: Uuid) -> Result<Vec<OAuthAccount>> {
-        Ok(self
-            .oauth_accounts
-            .read()
-            .unwrap()
+        Ok(rlock!(self.oauth_accounts, "oauth_accounts")
             .iter()
             .filter(|a| a.user_id == user_id)
             .cloned()
@@ -547,7 +520,7 @@ impl OAuthAccountRepository for MemoryStore {
     }
 
     async fn delete(&self, id: Uuid) -> Result<()> {
-        let mut accounts = self.oauth_accounts.write().unwrap();
+        let mut accounts = wlock!(self.oauth_accounts, "oauth_accounts");
         let before = accounts.len();
         accounts.retain(|a| a.id != id);
         if accounts.len() == before {
@@ -571,22 +544,19 @@ impl InviteRepository for MemoryStore {
             expires_at: data.expires_at,
             accepted_at: None,
         };
-        self.invites.write().unwrap().push(invite.clone());
+        wlock!(self.invites, "invites").push(invite.clone());
         Ok(invite)
     }
 
     async fn find_by_token_hash(&self, hash: &str) -> Result<Option<Invite>> {
-        Ok(self
-            .invites
-            .read()
-            .unwrap()
+        Ok(rlock!(self.invites, "invites")
             .iter()
             .find(|i| i.token_hash == hash)
             .cloned())
     }
 
     async fn accept(&self, invite_id: Uuid) -> Result<Invite> {
-        let mut invites = self.invites.write().unwrap();
+        let mut invites = wlock!(self.invites, "invites");
         let invite = invites
             .iter_mut()
             .find(|i| i.id == invite_id)
@@ -596,7 +566,7 @@ impl InviteRepository for MemoryStore {
     }
 
     async fn delete_expired(&self) -> Result<u64> {
-        let mut invites = self.invites.write().unwrap();
+        let mut invites = wlock!(self.invites, "invites");
         let before = invites.len();
         let now = Utc::now();
         invites.retain(|i| i.accepted_at.is_some() || i.expires_at > now);

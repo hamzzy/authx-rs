@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use chrono::Utc;
 use clap::{Args, Subcommand};
 use uuid::Uuid;
 
@@ -29,6 +30,10 @@ pub struct GenerateArgs {
     /// Comma-separated scopes (e.g. read,write).
     #[arg(long, default_value = "")]
     scopes: String,
+
+    /// Key lifetime in days (1–365, default 90).
+    #[arg(long, default_value_t = 90)]
+    expires_days: u32,
 }
 
 #[derive(Args)]
@@ -65,8 +70,11 @@ async fn generate(args: GenerateArgs) -> Result<()> {
         .map(String::from)
         .collect();
 
+    let expires_days = args.expires_days.clamp(1, 365);
+    let expires_at = Utc::now() + chrono::Duration::days(expires_days as i64);
+
     let resp = svc
-        .create(args.user_id, None, args.name.clone(), scopes, None)
+        .create(args.user_id, None, args.name.clone(), scopes, expires_at)
         .await
         .context("failed to generate key")?;
 
