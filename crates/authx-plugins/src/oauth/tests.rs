@@ -4,7 +4,7 @@ use authx_storage::memory::MemoryStore;
 
 use super::{
     providers::{OAuthProvider, OAuthTokens, OAuthUserInfo},
-    service::OAuthService,
+    service::{OAuthCallbackRequest, OAuthService},
 };
 
 fn enc_key() -> [u8; 32] {
@@ -85,14 +85,15 @@ async fn callback_creates_user_and_session() {
     let s = svc();
     let resp = s.begin("mock", "https://app/cb").unwrap();
     let (user, session, token) = s
-        .callback(
-            "mock",
-            "auth-code",
-            &resp.state,
-            &resp.code_verifier,
-            "https://app/cb",
-            "127.0.0.1",
-        )
+        .callback(OAuthCallbackRequest {
+            provider_name: "mock",
+            code: "auth-code",
+            expected_state: &resp.state,
+            received_state: &resp.state,
+            code_verifier: &resp.code_verifier,
+            redirect_uri: "https://app/cb",
+            ip: "127.0.0.1",
+        })
         .await
         .unwrap();
     assert_eq!(user.email, "oauth@example.com");
@@ -101,30 +102,50 @@ async fn callback_creates_user_and_session() {
 }
 
 #[tokio::test]
+async fn callback_state_mismatch_rejected() {
+    let s = svc();
+    let resp = s.begin("mock", "https://app/cb").unwrap();
+    let err = s
+        .callback(OAuthCallbackRequest {
+            provider_name: "mock",
+            code: "auth-code",
+            expected_state: &resp.state,
+            received_state: "tampered-state-value",
+            code_verifier: &resp.code_verifier,
+            redirect_uri: "https://app/cb",
+            ip: "127.0.0.1",
+        })
+        .await;
+    assert!(err.is_err(), "mismatched state must be rejected");
+}
+
+#[tokio::test]
 async fn callback_twice_reuses_user() {
     let s = svc();
     let r1 = s.begin("mock", "https://app/cb").unwrap();
     let (u1, _, _) = s
-        .callback(
-            "mock",
-            "code1",
-            &r1.state,
-            &r1.code_verifier,
-            "https://app/cb",
-            "127.0.0.1",
-        )
+        .callback(OAuthCallbackRequest {
+            provider_name: "mock",
+            code: "code1",
+            expected_state: &r1.state,
+            received_state: &r1.state,
+            code_verifier: &r1.code_verifier,
+            redirect_uri: "https://app/cb",
+            ip: "127.0.0.1",
+        })
         .await
         .unwrap();
     let r2 = s.begin("mock", "https://app/cb").unwrap();
     let (u2, _, _) = s
-        .callback(
-            "mock",
-            "code2",
-            &r2.state,
-            &r2.code_verifier,
-            "https://app/cb",
-            "127.0.0.1",
-        )
+        .callback(OAuthCallbackRequest {
+            provider_name: "mock",
+            code: "code2",
+            expected_state: &r2.state,
+            received_state: &r2.state,
+            code_verifier: &r2.code_verifier,
+            redirect_uri: "https://app/cb",
+            ip: "127.0.0.1",
+        })
         .await
         .unwrap();
     assert_eq!(u1.id, u2.id, "same email → same user row");

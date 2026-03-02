@@ -217,6 +217,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "ed25519-dalek",
+ "email_address",
  "hex",
  "jsonwebtoken",
  "rand 0.8.5",
@@ -241,6 +242,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "subtle",
  "tokio",
  "tracing",
  "uuid",
@@ -257,6 +259,7 @@ dependencies = [
  "axum",
  "base64",
  "chrono",
+ "email_address",
  "hex",
  "rand 0.8.5",
  "redis",
@@ -264,6 +267,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "subtle",
  "thiserror 1.0.69",
  "tokio",
  "totp-rs",
@@ -775,6 +779,15 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "email_address"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e079f19b08ca6239f47f8ba8509c11cf3ea30095831f7fed61441475edd8c449"
 dependencies = [
  "serde",
 ]

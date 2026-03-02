@@ -63,6 +63,10 @@ reqwest      = { version = "0.12", features = ["json"] }
 base64       = "0.22"
 urlencoding  = "2"
 
+# Security
+subtle       = "2"
+email_address = "0.2"
+
 # Internal crates — path + version so `cargo publish` resolves from crates.io
 authx-core    = { path = "crates/authx-core",    version = "0.1" }
 authx-storage = { path = "crates/authx-storage", version = "0.1" }

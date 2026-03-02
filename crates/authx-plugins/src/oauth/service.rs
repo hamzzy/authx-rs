@@ -25,6 +25,19 @@ pub struct OAuthBeginResponse {
     pub code_verifier: String,
 }
 
+/// Parameters for the OAuth callback step.
+pub struct OAuthCallbackRequest<'a> {
+    pub provider_name: &'a str,
+    pub code: &'a str,
+    /// The state value originally returned by `begin()` (stored server-side).
+    pub expected_state: &'a str,
+    /// The state received in the OAuth redirect query parameters.
+    pub received_state: &'a str,
+    pub code_verifier: &'a str,
+    pub redirect_uri: &'a str,
+    pub ip: &'a str,
+}
+
 /// OAuth authentication service supporting multiple providers.
 ///
 /// Providers are registered by name via [`OAuthService::register`].
@@ -103,19 +116,27 @@ where
 
     /// Handle the OAuth callback. Exchange the code, fetch user info, upsert the
     /// OAuth account, find-or-create the user by email, and create a session.
-    #[instrument(skip(self, code, code_verifier), fields(provider = %provider_name, ip = %ip))]
-    pub async fn callback(
-        &self,
-        provider_name: &str,
-        code: &str,
-        _state: &str,
-        code_verifier: &str,
-        redirect_uri: &str,
-        ip: &str,
-    ) -> Result<(User, Session, String)> {
-        let provider = self.provider(provider_name)?;
+    ///
+    /// `req.expected_state` must be the value returned by `begin()` (stored
+    /// server-side). `req.received_state` comes from the OAuth redirect query
+    /// param. A mismatch is treated as a CSRF attempt and rejected immediately.
+    #[instrument(skip(self, req), fields(provider = %req.provider_name, ip = %req.ip))]
+    pub async fn callback(&self, req: OAuthCallbackRequest<'_>) -> Result<(User, Session, String)> {
+        use subtle::ConstantTimeEq;
+        if req
+            .expected_state
+            .as_bytes()
+            .ct_eq(req.received_state.as_bytes())
+            .unwrap_u8()
+            == 0
+        {
+            tracing::warn!(provider = %req.provider_name, "oauth state mismatch — possible CSRF");
+            return Err(AuthError::InvalidToken);
+        }
+
+        let provider = self.provider(req.provider_name)?;
         let tokens = provider
-            .exchange_code(code, code_verifier, redirect_uri)
+            .exchange_code(req.code, req.code_verifier, req.redirect_uri)
             .await?;
         let info = provider.fetch_user_info(&tokens.access_token).await?;
 
@@ -156,7 +177,7 @@ where
             &self.storage,
             UpsertOAuthAccount {
                 user_id: user.id,
-                provider: provider_name.to_owned(),
+                provider: req.provider_name.to_owned(),
                 provider_user_id: info.provider_user_id,
                 access_token_enc: access_enc,
                 refresh_token_enc: refresh_enc,
@@ -167,7 +188,7 @@ where
 
         self.events.emit(AuthEvent::OAuthLinked {
             user_id: user.id,
-            provider: provider_name.to_owned(),
+            provider: req.provider_name.to_owned(),
         });
 
         // Create session.
@@ -180,8 +201,8 @@ where
             CreateSession {
                 user_id: user.id,
                 token_hash,
-                device_info: serde_json::json!({ "provider": provider_name }),
-                ip_address: ip.to_owned(),
+                device_info: serde_json::json!({ "provider": req.provider_name }),
+                ip_address: req.ip.to_owned(),
                 org_id: None,
                 expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
@@ -192,7 +213,7 @@ where
             user: user.clone(),
             session: session.clone(),
         });
-        tracing::info!(user_id = %user.id, provider = %provider_name, "oauth sign-in complete");
+        tracing::info!(user_id = %user.id, provider = %req.provider_name, "oauth sign-in complete");
         Ok((user, session, raw_str))
     }
 }

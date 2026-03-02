@@ -27,6 +27,7 @@ rand.workspace          = true
 sha2.workspace          = true
 hex.workspace           = true
 jsonwebtoken.workspace  = true
+email_address.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true }

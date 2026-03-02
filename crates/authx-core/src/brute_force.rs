@@ -53,7 +53,7 @@ impl LoginAttemptTracker {
     /// Returns `true` if the key is currently locked out.
     pub fn is_locked(&self, key: &str) -> bool {
         let now = Instant::now();
-        let map = self.inner.lock().expect("lockout tracker lock poisoned");
+        let map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
         match map.get(key) {
             None => false,
             Some(rec) => {
@@ -69,7 +69,7 @@ impl LoginAttemptTracker {
     /// Record a failed attempt. Call this when credentials are wrong.
     pub fn record_failure(&self, key: &str) {
         let now = Instant::now();
-        let mut map = self.inner.lock().expect("lockout tracker lock poisoned");
+        let mut map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
         let rec = map.entry(key.to_owned()).or_insert(FailureRecord {
             count: 0,
             window_start: now,
@@ -92,7 +92,7 @@ impl LoginAttemptTracker {
 
     /// Reset the failure counter on successful sign-in.
     pub fn record_success(&self, key: &str) {
-        let mut map = self.inner.lock().expect("lockout tracker lock poisoned");
+        let mut map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("lockout tracker mutex poisoned — recovering"); e.into_inner() } };
         map.remove(key);
         tracing::debug!(key = key, "login success — failure counter cleared");
     }

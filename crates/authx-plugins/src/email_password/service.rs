@@ -9,6 +9,7 @@ use authx_core::{
     error::{AuthError, Result},
     events::{AuthEvent, EventBus},
     models::{CreateCredential, CreateSession, CreateUser, CredentialKind, Session, User},
+    validation::{validate_email, validate_password},
 };
 use authx_storage::ports::{CredentialRepository, SessionRepository, UserRepository};
 
@@ -68,12 +69,8 @@ where
 
     #[instrument(skip(self, req), fields(email = %req.email))]
     pub async fn sign_up(&self, req: SignUpRequest) -> Result<User> {
-        if req.password.len() < self.min_password_len {
-            return Err(AuthError::Internal(format!(
-                "password must be at least {} characters",
-                self.min_password_len
-            )));
-        }
+        validate_email(&req.email)?;
+        validate_password(&req.password, self.min_password_len)?;
 
         if UserRepository::find_by_email(&self.storage, &req.email)
             .await?

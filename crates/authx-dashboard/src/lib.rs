@@ -19,6 +19,7 @@ mod html;
 use std::sync::Arc;
 
 use authx_core::events::EventBus;
+use subtle::ConstantTimeEq;
 use authx_plugins::AdminService;
 use authx_storage::ports::{AuditLogRepository, OrgRepository, SessionRepository, UserRepository};
 use axum::{
@@ -87,7 +88,12 @@ where
         .and_then(|s| s.strip_prefix("Bearer "))
         .unwrap_or("");
 
-    if provided.is_empty() || provided != state.token.as_str() {
+    let token_bytes = state.token.as_bytes();
+    let valid = !provided.is_empty()
+        && provided.len() == token_bytes.len()
+        && provided.as_bytes().ct_eq(token_bytes).unwrap_u8() == 1;
+
+    if !valid {
         tracing::warn!("dashboard: rejected request — invalid or missing admin token");
         return Err(StatusCode::UNAUTHORIZED);
     }

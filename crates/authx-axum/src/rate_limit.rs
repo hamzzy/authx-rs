@@ -50,7 +50,7 @@ impl RateLimitStore {
     /// Returns `true` if the request is allowed, `false` if it should be rejected.
     fn check(&self, ip: IpAddr, cfg: &RateLimitConfig) -> bool {
         let now = Instant::now();
-        let mut map = self.inner.lock().expect("rate-limit lock poisoned");
+        let mut map = match self.inner.lock() { Ok(g) => g, Err(e) => { tracing::error!("rate-limit mutex poisoned — recovering"); e.into_inner() } };
 
         let entry = map.entry(ip).or_insert((now, 0));
 

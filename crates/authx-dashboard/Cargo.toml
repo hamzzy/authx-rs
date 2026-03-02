@@ -24,3 +24,4 @@ serde_json = { workspace = true }
 uuid       = { workspace = true }
 chrono     = { workspace = true }
 tracing    = { workspace = true }
+subtle     = { workspace = true }

@@ -135,16 +135,36 @@ where
             return Ok(());
         }
 
-        // Try backup codes (single-use; a full impl would update the DB row).
+        // Try backup codes — single-use. Remove the consumed code from storage.
         let code_hash = sha256_hex(req.code.as_bytes());
-        let codes: Vec<String> = cred
+        let mut codes: Vec<String> = cred
             .metadata
             .get("backup_codes")
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
 
-        if codes.contains(&code_hash) {
-            tracing::info!(user_id = %req.user_id, "totp: backup code accepted");
+        if let Some(pos) = codes.iter().position(|c| c == &code_hash) {
+            codes.remove(pos);
+
+            // Persist the updated (shorter) backup-code list.
+            CredentialRepository::delete_by_user_and_kind(
+                &self.storage,
+                req.user_id,
+                CredentialKind::Passkey,
+            )
+            .await?;
+            CredentialRepository::create(
+                &self.storage,
+                CreateCredential {
+                    user_id: req.user_id,
+                    kind: CredentialKind::Passkey,
+                    credential_hash: cred.credential_hash,
+                    metadata: Some(serde_json::json!({ "backup_codes": codes })),
+                },
+            )
+            .await?;
+
+            tracing::info!(user_id = %req.user_id, remaining = codes.len(), "totp: backup code consumed");
             return Ok(());
         }
 

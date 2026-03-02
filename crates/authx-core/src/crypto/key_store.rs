@@ -72,7 +72,7 @@ impl KeyRotationStore {
             encoding,
             decoding,
         };
-        let mut inner = self.inner.write().expect("key store lock poisoned");
+        let mut inner = match self.inner.write() { Ok(g) => g, Err(e) => { tracing::error!("key store write-lock poisoned — recovering"); e.into_inner() } };
         inner.keys.push(version);
 
         // Enforce max_keys by evicting the oldest.
@@ -98,7 +98,7 @@ impl KeyRotationStore {
 
     /// Drop the oldest key version (call after old tokens have expired).
     pub fn prune_oldest(&self) {
-        let mut inner = self.inner.write().expect("key store lock poisoned");
+        let mut inner = match self.inner.write() { Ok(g) => g, Err(e) => { tracing::error!("key store write-lock poisoned — recovering"); e.into_inner() } };
         if inner.keys.len() > 1 {
             let removed = inner.keys.remove(0);
             tracing::info!(kid = %removed.kid, "oldest key version pruned");
@@ -115,7 +115,7 @@ impl KeyRotationStore {
     ) -> Result<String> {
         use chrono::Utc;
 
-        let inner = self.inner.read().expect("key store lock poisoned");
+        let inner = match self.inner.read() { Ok(g) => g, Err(e) => { tracing::error!("key store read-lock poisoned — recovering"); e.into_inner() } };
         let kv = inner
             .keys
             .last()
@@ -144,7 +144,7 @@ impl KeyRotationStore {
     /// Verify a JWT against *all* retained key versions (newest first).
     #[instrument(skip(self, token))]
     pub fn verify(&self, token: &str) -> Result<Claims> {
-        let inner = self.inner.read().expect("key store lock poisoned");
+        let inner = match self.inner.read() { Ok(g) => g, Err(e) => { tracing::error!("key store read-lock poisoned — recovering"); e.into_inner() } };
 
         let mut validation = Validation::new(Algorithm::EdDSA);
         validation.validate_exp = true;
@@ -181,11 +181,13 @@ impl KeyRotationStore {
 
     /// Number of currently retained key versions.
     pub fn key_count(&self) -> usize {
-        self.inner
-            .read()
-            .expect("key store lock poisoned")
-            .keys
-            .len()
+        match self.inner.read() {
+            Ok(g) => g.keys.len(),
+            Err(e) => {
+                tracing::error!("key store read-lock poisoned — recovering");
+                e.into_inner().keys.len()
+            }
+        }
     }
 }
 

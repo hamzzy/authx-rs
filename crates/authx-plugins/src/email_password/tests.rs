@@ -15,7 +15,7 @@ async fn sign_up_creates_user() {
     let user = svc
         .sign_up(SignUpRequest {
             email: "alice@example.com".into(),
-            password: "hunter42!".into(),
+            password: "Hunter42!".into(),
             ip: "127.0.0.1".into(),
         })
         .await
@@ -29,7 +29,7 @@ async fn sign_up_rejects_duplicate_email() {
     let svc = make_service();
     let req = || SignUpRequest {
         email: "dup@example.com".into(),
-        password: "hunter42!".into(),
+        password: "Hunter42!".into(),
         ip: "127.0.0.1".into(),
     };
 
@@ -53,6 +53,21 @@ async fn sign_up_rejects_short_password() {
         .await
         .expect_err("expected password error");
 
+    assert!(matches!(err, AuthError::WeakPassword), "got: {err:?}");
+}
+
+#[tokio::test]
+async fn sign_up_rejects_invalid_email() {
+    let svc = make_service();
+    let err = svc
+        .sign_up(SignUpRequest {
+            email: "not-an-email".into(),
+            password: "Hunter42!".into(),
+            ip: "127.0.0.1".into(),
+        })
+        .await
+        .expect_err("expected email validation error");
+
     assert!(matches!(err, AuthError::Internal(_)), "got: {err:?}");
 }
 
@@ -61,7 +76,7 @@ async fn sign_in_returns_token_and_session() {
     let svc = make_service();
     svc.sign_up(SignUpRequest {
         email: "bob@example.com".into(),
-        password: "correct-horse!".into(),
+        password: "Correct-Horse1!".into(),
         ip: "10.0.0.1".into(),
     })
     .await
@@ -70,7 +85,7 @@ async fn sign_in_returns_token_and_session() {
     let resp = svc
         .sign_in(SignInRequest {
             email: "bob@example.com".into(),
-            password: "correct-horse!".into(),
+            password: "Correct-Horse1!".into(),
             ip: "10.0.0.2".into(),
         })
         .await
@@ -86,7 +101,7 @@ async fn sign_in_rejects_wrong_password() {
     let svc = make_service();
     svc.sign_up(SignUpRequest {
         email: "carol@example.com".into(),
-        password: "correct-horse!".into(),
+        password: "Correct-Horse1!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -124,7 +139,7 @@ async fn sign_out_invalidates_session() {
     let svc = make_service();
     svc.sign_up(SignUpRequest {
         email: "dave@example.com".into(),
-        password: "passw0rd!".into(),
+        password: "Passw0rd!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -133,7 +148,7 @@ async fn sign_out_invalidates_session() {
     let resp = svc
         .sign_in(SignInRequest {
             email: "dave@example.com".into(),
-            password: "passw0rd!".into(),
+            password: "Passw0rd!".into(),
             ip: "127.0.0.1".into(),
         })
         .await
@@ -155,7 +170,7 @@ async fn sign_out_all_clears_every_session() {
     let svc = make_service();
     svc.sign_up(SignUpRequest {
         email: "eve@example.com".into(),
-        password: "passw0rd!".into(),
+        password: "Passw0rd!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -164,7 +179,7 @@ async fn sign_out_all_clears_every_session() {
     let resp1 = svc
         .sign_in(SignInRequest {
             email: "eve@example.com".into(),
-            password: "passw0rd!".into(),
+            password: "Passw0rd!".into(),
             ip: "1.1.1.1".into(),
         })
         .await
@@ -173,7 +188,7 @@ async fn sign_out_all_clears_every_session() {
     let _ = svc
         .sign_in(SignInRequest {
             email: "eve@example.com".into(),
-            password: "passw0rd!".into(),
+            password: "Passw0rd!".into(),
             ip: "2.2.2.2".into(),
         })
         .await
@@ -195,7 +210,7 @@ async fn list_sessions_returns_all_active() {
     let svc = make_service();
     svc.sign_up(SignUpRequest {
         email: "frank@example.com".into(),
-        password: "passw0rd!".into(),
+        password: "Passw0rd!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -206,7 +221,7 @@ async fn list_sessions_returns_all_active() {
         async move {
             svc.sign_in(SignInRequest {
                 email: "frank@example.com".into(),
-                password: "passw0rd!".into(),
+                password: "Passw0rd!".into(),
                 ip: ip.into(),
             })
             .await
@@ -239,7 +254,7 @@ async fn lockout_triggers_after_max_failures() {
 
     svc.sign_up(SignUpRequest {
         email: "grace@example.com".into(),
-        password: "correct-pass!".into(),
+        password: "Correct-Pass1!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -269,7 +284,7 @@ async fn lockout_clears_on_success() {
 
     svc.sign_up(SignUpRequest {
         email: "henry@example.com".into(),
-        password: "correct-pass!".into(),
+        password: "Correct-Pass1!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -289,7 +304,7 @@ async fn lockout_clears_on_success() {
     // Successful sign-in resets counter.
     svc.sign_in(SignInRequest {
         email: "henry@example.com".into(),
-        password: "correct-pass!".into(),
+        password: "Correct-Pass1!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
@@ -310,7 +325,7 @@ async fn lockout_clears_on_success() {
     let result = svc
         .sign_in(SignInRequest {
             email: "henry@example.com".into(),
-            password: "correct-pass!".into(),
+            password: "Correct-Pass1!".into(),
             ip: "127.0.0.1".into(),
         })
         .await;
@@ -325,7 +340,7 @@ async fn no_lockout_without_config() {
 
     svc.sign_up(SignUpRequest {
         email: "ivan@example.com".into(),
-        password: "correct-pass!".into(),
+        password: "Correct-Pass1!".into(),
         ip: "127.0.0.1".into(),
     })
     .await
