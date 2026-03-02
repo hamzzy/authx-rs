@@ -1,6 +1,6 @@
 name: Release
 
-# Triggered by pushing a semver tag: git tag v0.1.0 && git push origin v0.1.0
+# Triggered by: git tag v0.1.0 && git push origin v0.1.0
 on:
   push:
     tags:
@@ -10,7 +10,6 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Gate: verify tests pass on the exact commit being released
   test:
     name: Test (release gate)
     runs-on: ubuntu-latest
@@ -20,7 +19,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
-  # Gate: no unignored security advisories
   audit:
     name: Audit (release gate)
     runs-on: ubuntu-latest
@@ -29,15 +27,16 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # RUSTSEC-2023-0071: rsa via sqlx-macros-core → sqlx-mysql (unconditional in sqlx 0.8)
+          # We do not use MySQL; no runtime RSA code path exists.
           ignore: RUSTSEC-2023-0071
 
-  # Publish crates in dependency order; each step waits for the previous to
-  # propagate to the crates.io index before the next publish resolves it.
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
     needs: [test, audit]
-    environment: crates-io
+    # Remove `environment: crates-io` if you haven't created that environment
+    # in GitHub repo settings — it blocks the job otherwise.
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -48,56 +47,56 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-core to propagate
+      - name: Wait for authx-core index
         run: |
-          for i in $(seq 1 10); do
-            cargo search authx-core | grep -q "0.1.0" && exit 0
-            echo "Waiting for index... ($i/10)"
-            sleep 15
+          for i in $(seq 1 12); do
+            cargo search authx-core 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-core indexed"; exit 0; }
+            echo "waiting... ($i/12)"
+            sleep 20
           done
-          exit 1
+          echo "timed out waiting for authx-core" && exit 1
 
       - name: Publish authx-storage
         run: cargo publish -p authx-storage
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-storage to propagate
+      - name: Wait for authx-storage index
         run: |
-          for i in $(seq 1 10); do
-            cargo search authx-storage | grep -q "0.1.0" && exit 0
-            echo "Waiting for index... ($i/10)"
-            sleep 15
+          for i in $(seq 1 12); do
+            cargo search authx-storage 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-storage indexed"; exit 0; }
+            echo "waiting... ($i/12)"
+            sleep 20
           done
-          exit 1
+          echo "timed out waiting for authx-storage" && exit 1
 
       - name: Publish authx-plugins
         run: cargo publish -p authx-plugins
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-plugins to propagate
+      - name: Wait for authx-plugins index
         run: |
-          for i in $(seq 1 10); do
-            cargo search authx-plugins | grep -q "0.1.0" && exit 0
-            echo "Waiting for index... ($i/10)"
-            sleep 15
+          for i in $(seq 1 12); do
+            cargo search authx-plugins 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-plugins indexed"; exit 0; }
+            echo "waiting... ($i/12)"
+            sleep 20
           done
-          exit 1
+          echo "timed out waiting for authx-plugins" && exit 1
 
       - name: Publish authx-axum
         run: cargo publish -p authx-axum
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for authx-axum to propagate
+      - name: Wait for authx-axum index
         run: |
-          for i in $(seq 1 10); do
-            cargo search authx-axum | grep -q "0.1.0" && exit 0
-            echo "Waiting for index... ($i/10)"
-            sleep 15
+          for i in $(seq 1 12); do
+            cargo search authx-axum 2>/dev/null | grep -q '"0.1.0"' && { echo "authx-axum indexed"; exit 0; }
+            echo "waiting... ($i/12)"
+            sleep 20
           done
-          exit 1
+          echo "timed out waiting for authx-axum" && exit 1
 
       - name: Publish authx-dashboard
         run: cargo publish -p authx-dashboard
@@ -109,7 +108,6 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-  # Create a GitHub Release with the relevant CHANGELOG section
   github-release:
     name: GitHub Release
     runs-on: ubuntu-latest
@@ -127,7 +125,6 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Grab the block between the version header and the next one
           NOTES=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
           {
             echo "notes<<EOF"

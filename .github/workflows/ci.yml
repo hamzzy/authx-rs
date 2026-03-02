@@ -46,11 +46,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # RUSTSEC-2023-0071: Marvin Attack in `rsa` crate.
-          # Pulled in by sqlx-macros-core → sqlx-mysql (unconditional in sqlx 0.8).
-          # We do not use MySQL; no runtime code path touches RSA.
-          # No fixed version exists upstream. Track: https://github.com/launchbadge/sqlx/issues/3397
-          ignore: RUSTSEC-2023-0071
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Run audit
+        # RUSTSEC-2023-0071: rsa via sqlx-macros-core → sqlx-mysql (unconditional in sqlx 0.8).
+        # We do not use MySQL; no runtime RSA code path exists. No fix available upstream.
+        # https://github.com/launchbadge/sqlx/issues/3397
+        run: cargo audit --ignore RUSTSEC-2023-0071
