@@ -1,0 +1,14 @@
+# cargo-audit configuration
+# https://docs.rs/cargo-audit/latest/cargo_audit/
+
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0071 — Marvin Attack timing side-channel in the `rsa` crate.
+    # Affected path: sqlx-macros-core → sqlx-mysql → rsa
+    # We do not use MySQL; sqlx-macros-core unconditionally links all database
+    # drivers in sqlx 0.8 regardless of which features are selected.
+    # No fixed version of sqlx-mysql exists. Risk is zero since the RSA code
+    # path is never reached at runtime in a Postgres-only deployment.
+    # Tracked: https://github.com/launchbadge/sqlx/issues/3397
+    "RUSTSEC-2023-0071",
+]

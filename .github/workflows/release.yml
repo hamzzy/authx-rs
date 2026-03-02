@@ -1,60 +1,143 @@
 name: Release
 
+# Triggered by pushing a semver tag: git tag v0.1.0 && git push origin v0.1.0
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  publish:
-    name: Publish to Crates.io
+  # Gate: verify tests pass on the exact commit being released
+  test:
+    name: Test (release gate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  # Gate: no unignored security advisories
+  audit:
+    name: Audit (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ignore: RUSTSEC-2023-0071
+
+  # Publish crates in dependency order; each step waits for the previous to
+  # propagate to the crates.io index before the next publish resolves it.
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [test, audit]
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
 
       - name: Publish authx-core
         run: cargo publish -p authx-core
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for index
-        run: sleep 30
+      - name: Wait for authx-core to propagate
+        run: |
+          for i in $(seq 1 10); do
+            cargo search authx-core | grep -q "0.1.0" && exit 0
+            echo "Waiting for index... ($i/10)"
+            sleep 15
+          done
+          exit 1
 
       - name: Publish authx-storage
         run: cargo publish -p authx-storage
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for index
-        run: sleep 30
+      - name: Wait for authx-storage to propagate
+        run: |
+          for i in $(seq 1 10); do
+            cargo search authx-storage | grep -q "0.1.0" && exit 0
+            echo "Waiting for index... ($i/10)"
+            sleep 15
+          done
+          exit 1
 
       - name: Publish authx-plugins
         run: cargo publish -p authx-plugins
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for index
-        run: sleep 30
+      - name: Wait for authx-plugins to propagate
+        run: |
+          for i in $(seq 1 10); do
+            cargo search authx-plugins | grep -q "0.1.0" && exit 0
+            echo "Waiting for index... ($i/10)"
+            sleep 15
+          done
+          exit 1
 
       - name: Publish authx-axum
         run: cargo publish -p authx-axum
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for index
-        run: sleep 30
+      - name: Wait for authx-axum to propagate
+        run: |
+          for i in $(seq 1 10); do
+            cargo search authx-axum | grep -q "0.1.0" && exit 0
+            echo "Waiting for index... ($i/10)"
+            sleep 15
+          done
+          exit 1
+
+      - name: Publish authx-dashboard
+        run: cargo publish -p authx-dashboard
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
       - name: Publish authx-cli
         run: cargo publish -p authx-cli
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Wait for index
-        run: sleep 30
+  # Create a GitHub Release with the relevant CHANGELOG section
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Publish authx-dashboard
-        run: cargo publish -p authx-dashboard
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Grab the block between the version header and the next one
+          NOTES=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          {
+            echo "notes<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: "authx-rs v${{ steps.version.outputs.version }}"
+          body: ${{ steps.changelog.outputs.notes }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

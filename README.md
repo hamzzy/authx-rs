@@ -1,5 +1,10 @@
 # authx-rs
 
+[![Crates.io](https://img.shields.io/crates/v/authx-core.svg)](https://crates.io/crates/authx-core)
+[![docs.rs](https://docs.rs/authx-core/badge.svg)](https://docs.rs/authx-core)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/hamzzy/authx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/hamzzy/authx-rs/actions)
+
 A production-grade authentication and authorization framework for Rust, built for Axum.
 
 **Philosophy:** Zero-cost abstractions, trait-based, `async`-native. Every feature is a plugin, nothing is hardcoded.
@@ -65,10 +70,10 @@ examples/
 ```toml
 # Cargo.toml
 [dependencies]
-authx-core    = { path = "crates/authx-core" }
-authx-storage = { path = "crates/authx-storage" }
-authx-plugins = { path = "crates/authx-plugins" }
-authx-axum    = { path = "crates/authx-axum" }
+authx-core    = "0.1"
+authx-storage = "0.1"
+authx-plugins = "0.1"
+authx-axum    = "0.1"
 ```
 
 ```rust
@@ -264,7 +269,7 @@ let store = MemoryStore::new();
 ### PostgreSQL (production)
 
 ```toml
-authx-storage = { path = "crates/authx-storage", features = ["sqlx-postgres"] }
+authx-storage = { version = "0.1", features = ["sqlx-postgres"] }
 ```
 
 ```rust
@@ -298,7 +303,36 @@ store.migrate().await?; // runs bundled migrations automatically
 ```bash
 cargo test --workspace
 ```
-
-68 tests across all crates. No network or database required — storage tests use `MemoryStore`.
-
 ---
+
+## Roadmap
+
+### v0.1 (released)
+- [x] Email + password authentication with Argon2id
+- [x] TOTP MFA with backup codes
+- [x] Magic link authentication
+- [x] Password reset
+- [x] API key authentication
+- [x] OAuth2 authorization code flow with PKCE
+- [x] Email verification
+- [x] Organization management + RBAC
+- [x] ABAC policy engine with built-in policies
+- [x] Brute-force lockout + per-IP rate limiting
+- [x] CSRF protection
+- [x] JWT key rotation (zero-downtime, Ed25519)
+- [x] Audit logging
+- [x] PostgreSQL adapter (sqlx 0.8)
+- [x] Admin service (ban, impersonate, revoke sessions)
+- [x] Admin dashboard (HTMX)
+- [x] CLI (`authx serve`, `migrate`, `user`, `key`)
+
+### v0.2 (planned)
+- [ ] OIDC Provider — act as an identity provider
+- [ ] OAuth2 Provider — act as an authorization server
+- [ ] SSO / OIDC federation — sign in via Okta, Azure AD, Google Workspace
+- [ ] Device Authorization Grant (RFC 8628)
+- [ ] SAML 2.0 — enterprise IdP integration
+- [ ] SCIM 2.0 — user and group provisioning
+- [ ] WebAuthn / Passkey plugin
+- [ ] Redis-backed rate limiting and token store
+- [ ] Organization invitation flow
