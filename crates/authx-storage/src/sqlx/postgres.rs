@@ -1365,12 +1365,11 @@ impl DeviceCodeRepository for PostgresStore {
     }
 
     async fn deny(&self, id: Uuid) -> Result<()> {
-        let result =
-            sqlx::query("UPDATE authx_device_codes SET denied = true WHERE id = $1")
-                .bind(id)
-                .execute(&self.pool)
-                .await
-                .map_err(db_err)?;
+        let result = sqlx::query("UPDATE authx_device_codes SET denied = true WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage(StorageError::NotFound));

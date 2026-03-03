@@ -470,12 +470,9 @@ where
             let elapsed = (Utc::now() - last).num_seconds();
             if elapsed < dc.interval_secs as i64 {
                 let new_interval = dc.interval_secs + 5;
-                let _ = DeviceCodeRepository::update_last_polled(
-                    &self.storage,
-                    dc.id,
-                    new_interval,
-                )
-                .await;
+                let _ =
+                    DeviceCodeRepository::update_last_polled(&self.storage, dc.id, new_interval)
+                        .await;
                 return Err(DeviceCodeError::SlowDown);
             }
         }

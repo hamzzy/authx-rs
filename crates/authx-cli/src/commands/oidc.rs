@@ -143,8 +143,9 @@ pub async fn run(cmd: OidcCommand) -> Result<()> {
 
 async fn list_clients(args: ClientListArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let clients =
-        OidcClientRepository::list(&store, args.offset, args.limit).await.context("list clients")?;
+    let clients = OidcClientRepository::list(&store, args.offset, args.limit)
+        .await
+        .context("list clients")?;
 
     if clients.is_empty() {
         println!("No OIDC clients found.");
@@ -211,8 +212,9 @@ async fn create_client(args: ClientCreateArgs) -> Result<()> {
 
 async fn list_federation(_args: FederationListArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let providers =
-        OidcFederationProviderRepository::list_enabled(&store).await.context("list providers")?;
+    let providers = OidcFederationProviderRepository::list_enabled(&store)
+        .await
+        .context("list providers")?;
 
     if providers.is_empty() {
         println!("No federation providers found.");
@@ -222,13 +224,7 @@ async fn list_federation(_args: FederationListArgs) -> Result<()> {
     println!("{:<38} {:<18} {:<40} {}", "ID", "Name", "Issuer", "Scopes");
     println!("{}", "-".repeat(110));
     for p in &providers {
-        println!(
-            "{:<38} {:<18} {:<40} {}",
-            p.id,
-            p.name,
-            p.issuer,
-            p.scopes
-        );
+        println!("{:<38} {:<18} {:<40} {}", p.id, p.name, p.issuer, p.scopes);
     }
     println!("\n{} provider(s) shown.", providers.len());
     Ok(())
@@ -237,16 +233,15 @@ async fn list_federation(_args: FederationListArgs) -> Result<()> {
 async fn create_federation(args: FederationCreateArgs) -> Result<()> {
     let store = MemoryStore::new();
 
-    let key_bytes = hex::decode(args.enc_key_hex.trim())
-        .context("decode enc_key_hex")?;
+    let key_bytes = hex::decode(args.enc_key_hex.trim()).context("decode enc_key_hex")?;
     if key_bytes.len() != 32 {
         anyhow::bail!("enc_key_hex must decode to 32 bytes (AES-256 key)");
     }
     let mut key = [0u8; 32];
     key.copy_from_slice(&key_bytes);
 
-    let secret_enc =
-        authx_core::crypto::encrypt(&key, args.client_secret.as_bytes()).context("encrypt client_secret")?;
+    let secret_enc = authx_core::crypto::encrypt(&key, args.client_secret.as_bytes())
+        .context("encrypt client_secret")?;
 
     let provider = OidcFederationProviderRepository::create(
         &store,
@@ -271,9 +266,10 @@ async fn create_federation(args: FederationCreateArgs) -> Result<()> {
 
 async fn list_device_codes(args: DeviceListArgs) -> Result<()> {
     let store = MemoryStore::new();
-    let codes = DeviceCodeRepository::list_by_client(&store, &args.client_id, args.offset, args.limit)
-        .await
-        .context("list device codes")?;
+    let codes =
+        DeviceCodeRepository::list_by_client(&store, &args.client_id, args.offset, args.limit)
+            .await
+            .context("list device codes")?;
 
     if codes.is_empty() {
         println!("No device codes found for client '{}'.", args.client_id);

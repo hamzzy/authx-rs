@@ -150,8 +150,12 @@ pub trait DeviceCodeRepository: Send + Sync + 'static {
     async fn deny(&self, id: Uuid) -> Result<()>;
     async fn update_last_polled(&self, id: Uuid, interval_secs: u32) -> Result<()>;
     async fn delete_expired(&self) -> Result<u64>;
-    async fn list_by_client(&self, client_id: &str, offset: u32, limit: u32)
-        -> Result<Vec<DeviceCode>>;
+    async fn list_by_client(
+        &self,
+        client_id: &str,
+        offset: u32,
+        limit: u32,
+    ) -> Result<Vec<DeviceCode>>;
 }
 
 /// Composite adapter trait — storage backends implement this.

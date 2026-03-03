@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use authx_storage::ports::{
-    AuditLogRepository, DeviceCodeRepository, OrgRepository, OidcClientRepository,
-    OidcFederationProviderRepository, SessionRepository, UserRepository,
+    AuditLogRepository, DeviceCodeRepository, OidcClientRepository,
+    OidcFederationProviderRepository, OrgRepository, SessionRepository, UserRepository,
 };
 
 use crate::DashboardState;
@@ -389,9 +389,7 @@ where
 
 // ── OIDC Federation Providers ──────────────────────────────────────────────────
 
-async fn list_oidc_federation<S>(
-    State(state): State<DashboardState<S>>,
-) -> impl IntoResponse
+async fn list_oidc_federation<S>(State(state): State<DashboardState<S>>) -> impl IntoResponse
 where
     S: UserRepository
         + SessionRepository

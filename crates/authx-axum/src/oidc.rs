@@ -234,11 +234,7 @@ where
                     .into_response()
             }
         };
-        match state
-            .service
-            .poll_device_code(dc, &form.client_id)
-            .await
-        {
+        match state.service.poll_device_code(dc, &form.client_id).await {
             Ok(resp) => Json(resp).into_response(),
             Err(device_err) => {
                 let error_code = match device_err {
