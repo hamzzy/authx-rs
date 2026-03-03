@@ -20,7 +20,10 @@ use std::sync::Arc;
 
 use authx_core::events::EventBus;
 use authx_plugins::AdminService;
-use authx_storage::ports::{AuditLogRepository, OrgRepository, SessionRepository, UserRepository};
+use authx_storage::ports::{
+    AuditLogRepository, DeviceCodeRepository, OrgRepository, OidcClientRepository,
+    OidcFederationProviderRepository, SessionRepository, UserRepository,
+};
 use axum::{
     extract::State,
     http::{Request, StatusCode},
@@ -43,6 +46,9 @@ where
         + SessionRepository
         + OrgRepository
         + AuditLogRepository
+        + OidcClientRepository
+        + OidcFederationProviderRepository
+        + DeviceCodeRepository
         + Clone
         + Send
         + Sync

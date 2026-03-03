@@ -7,6 +7,8 @@ pub mod email_password;
 pub mod email_verification;
 pub mod magic_link;
 pub mod oauth;
+pub mod oidc_federation;
+pub mod oidc_provider;
 pub mod one_time_token;
 pub mod organization;
 pub mod password_reset;
@@ -22,6 +24,11 @@ pub use email_password::EmailPasswordService;
 pub use email_verification::EmailVerificationService;
 pub use magic_link::{MagicLinkService, MagicLinkVerifyResponse};
 pub use oauth::{GitHubProvider, GoogleProvider, OAuthService};
+pub use oidc_federation::{OidcFederationBeginResponse, OidcFederationService};
+pub use oidc_provider::{
+    DeviceAuthorizationResponse, DeviceCodeError, OidcProviderConfig, OidcProviderService,
+    OidcTokenResponse,
+};
 pub use one_time_token::OneTimeTokenStore;
 pub use organization::{InviteDetails, OrgService};
 pub use password_reset::PasswordResetService;

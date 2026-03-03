@@ -42,7 +42,7 @@ postgres://username:password@host:port/database?sslmode=require
 Migrations run automatically from the embedded SQL files:
 
 - `0001_initial_schema.sql` — users, sessions, credentials, orgs, roles, memberships, audit_logs
-- `0002_phase5.sql` — api_keys, oauth_accounts, invites, username column
+- `0002_.sql` — api_keys, oauth_accounts, invites, username column
 
 All tables are prefixed with `authx_` to avoid conflicts with your own schema.
 

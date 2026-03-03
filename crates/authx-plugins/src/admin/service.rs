@@ -46,6 +46,11 @@ where
         }
     }
 
+    /// Internal accessor used by the dashboard for advanced admin operations.
+    pub fn storage(&self) -> &S {
+        &self.storage
+    }
+
     /// Paginated list of all users ordered by `created_at`.
     #[instrument(skip(self))]
     pub async fn list_users(&self, offset: u32, limit: u32) -> Result<Vec<User>> {

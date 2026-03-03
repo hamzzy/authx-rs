@@ -31,6 +31,10 @@ enum Command {
     /// Manage API keys.
     #[command(subcommand)]
     Key(commands::key::KeyCommand),
+
+    /// Manage OIDC clients and federation providers.
+    #[command(subcommand)]
+    Oidc(commands::oidc::OidcCommand),
 }
 
 #[tokio::main]
@@ -47,5 +51,6 @@ async fn main() -> Result<()> {
         Command::Migrate(args) => commands::migrate::run(args).await,
         Command::User(cmd) => commands::user::run(cmd).await,
         Command::Key(cmd) => commands::key::run(cmd).await,
+        Command::Oidc(cmd) => commands::oidc::run(cmd).await,
     }
 }

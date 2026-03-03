@@ -241,6 +241,10 @@
 
       <div class="section-label">Sessions</div>
       <a href="#" onclick="showPanel('sessions', this)">Active Sessions</a>
+
+      <div class="section-label">OIDC / SSO</div>
+      <a href="#" onclick="showPanel('oidc-clients', this)">OIDC Clients</a>
+      <a href="#" onclick="showPanel('oidc-federation', this)">Federation Providers</a>
     </nav>
 
     <main>
@@ -304,6 +308,51 @@
               </tr>
             </thead>
             <tbody id="sessions-tbody"><tr><td colspan="4"><div class="empty">Enter a user ID above.</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OIDC Clients panel -->
+      <div id="panel-oidc-clients" class="panel">
+        <h2>OIDC Clients</h2>
+        <div class="toolbar">
+          <span class="spacer"></span>
+          <button class="btn btn-primary" onclick="showCreateClient()">+ New Client</button>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Client ID</th>
+                <th>Name</th>
+                <th>Redirect URIs</th>
+                <th>Scopes</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="oidc-clients-tbody"><tr><td colspan="5"><div class="empty">Loading…</div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OIDC Federation panel -->
+      <div id="panel-oidc-federation" class="panel">
+        <h2>OIDC Federation Providers</h2>
+        <div class="toolbar">
+          <span class="spacer"></span>
+          <button class="btn btn-primary" onclick="showCreateFederation()">+ New Provider</button>
+        </div>
+        <div class="card" style="padding:0; overflow:hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Issuer</th>
+                <th>Client ID</th>
+                <th>Scopes</th>
+              </tr>
+            </thead>
+            <tbody id="oidc-federation-tbody"><tr><td colspan="4"><div class="empty">Loading…</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -411,6 +460,8 @@ function showPanel(name, link) {
   if (link) link.classList.add('active');
   if (name === 'overview') loadOverview();
   if (name === 'users')    loadUsers();
+  if (name === 'oidc-clients') loadOidcClients();
+  if (name === 'oidc-federation') loadOidcFederation();
 }
 
 // ── Overview ──────────────────────────────────────────────────────────────────
@@ -549,6 +600,42 @@ async function revokeAll() {
   await api('DELETE', `/users/${uid}/sessions`);
   toast('All sessions revoked');
   loadSessions();
+}
+
+// ── OIDC Clients ──────────────────────────────────────────────────────────────
+async function loadOidcClients() {
+  const clients = await api('GET', '/oidc/clients?limit=100');
+  const tbody = document.getElementById('oidc-clients-tbody');
+  if (!clients || !clients.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty">No clients configured.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = clients.map(c => {
+    const t = c.secret_hash && c.secret_hash.length ? 'confidential' : 'public';
+    return `<tr>
+      <td style="font-family:monospace; font-size:.78rem">${esc(c.client_id)}</td>
+      <td>${esc(c.name)}</td>
+      <td>${c.redirect_uris.map(esc).join('<br>')}</td>
+      <td>${esc(c.allowed_scopes)}</td>
+      <td>${t}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── OIDC Federation ───────────────────────────────────────────────────────────
+async function loadOidcFederation() {
+  const providers = await api('GET', '/oidc/federation');
+  const tbody = document.getElementById('oidc-federation-tbody');
+  if (!providers || !providers.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty">No federation providers.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = providers.map(p => `<tr>
+    <td>${esc(p.name)}</td>
+    <td>${esc(p.issuer)}</td>
+    <td style="font-family:monospace; font-size:.78rem">${esc(p.client_id)}</td>
+    <td>${esc(p.scopes)}</td>
+  </tr>`).join('');
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

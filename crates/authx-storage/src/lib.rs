@@ -8,8 +8,10 @@ pub mod sqlx;
 pub use audit_logger::AuditLogger;
 pub use memory::MemoryStore;
 pub use ports::{
-    ApiKeyRepository, AuditLogRepository, CredentialRepository, InviteRepository,
-    OAuthAccountRepository, OrgRepository, SessionRepository, StorageAdapter, UserRepository,
+    ApiKeyRepository, AuditLogRepository, AuthorizationCodeRepository, CredentialRepository,
+    DeviceCodeRepository, InviteRepository, OAuthAccountRepository, OidcClientRepository,
+    OidcFederationProviderRepository, OidcTokenRepository, OrgRepository, SessionRepository,
+    StorageAdapter, UserRepository,
 };
 
 #[cfg(feature = "sqlx-postgres")]
