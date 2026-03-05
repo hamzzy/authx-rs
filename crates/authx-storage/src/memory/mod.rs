@@ -839,6 +839,12 @@ impl DeviceCodeRepository for MemoryStore {
         Ok(())
     }
 
+    async fn delete(&self, id: Uuid) -> Result<()> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        codes.retain(|d| d.id != id);
+        Ok(())
+    }
+
     async fn delete_expired(&self) -> Result<u64> {
         let mut codes = wlock!(self.device_codes, "device_codes");
         let before = codes.len();

@@ -1390,6 +1390,15 @@ impl DeviceCodeRepository for PostgresStore {
         Ok(())
     }
 
+    async fn delete(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM authx_device_codes WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+        Ok(())
+    }
+
     async fn delete_expired(&self) -> Result<u64> {
         let result = sqlx::query("DELETE FROM authx_device_codes WHERE expires_at < NOW()")
             .execute(&self.pool)

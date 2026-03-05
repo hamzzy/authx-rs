@@ -454,6 +454,8 @@ where
         device_code: &str,
         client_id: &str,
     ) -> std::result::Result<OidcTokenResponse, DeviceCodeError> {
+        const MAX_INTERVAL_SECS: u32 = 3600;
+
         let device_code_hash = sha256_hex(device_code.as_bytes());
 
         let dc = DeviceCodeRepository::find_by_device_code_hash(&self.storage, &device_code_hash)
@@ -469,17 +471,18 @@ where
         if let Some(last) = dc.last_polled_at {
             let elapsed = (Utc::now() - last).num_seconds();
             if elapsed < dc.interval_secs as i64 {
-                let new_interval = dc.interval_secs + 5;
-                let _ =
-                    DeviceCodeRepository::update_last_polled(&self.storage, dc.id, new_interval)
-                        .await;
+                let new_interval = (dc.interval_secs + 5).min(MAX_INTERVAL_SECS);
+                DeviceCodeRepository::update_last_polled(&self.storage, dc.id, new_interval)
+                    .await
+                    .map_err(|_| DeviceCodeError::ExpiredToken)?;
                 return Err(DeviceCodeError::SlowDown);
             }
         }
 
         // Update last_polled_at
-        let _ =
-            DeviceCodeRepository::update_last_polled(&self.storage, dc.id, dc.interval_secs).await;
+        DeviceCodeRepository::update_last_polled(&self.storage, dc.id, dc.interval_secs)
+            .await
+            .map_err(|_| DeviceCodeError::ExpiredToken)?;
 
         // Check denied
         if dc.denied {
@@ -491,11 +494,19 @@ where
             return Err(DeviceCodeError::AuthorizationPending);
         }
 
-        // User authorized — issue tokens
+        // User authorized — issue tokens, then delete the device code to prevent reuse
         let user_id = dc.user_id.ok_or(DeviceCodeError::AccessDenied)?;
-        self.issue_tokens(user_id, client_id, &dc.scope, None)
+        let tokens = self
+            .issue_tokens(user_id, client_id, &dc.scope, None)
             .await
-            .map_err(|_| DeviceCodeError::AccessDenied)
+            .map_err(|_| DeviceCodeError::AccessDenied)?;
+
+        // Best-effort delete — tokens are already issued, log but don't fail
+        if let Err(e) = DeviceCodeRepository::delete(&self.storage, dc.id).await {
+            tracing::warn!(error = %e, "failed to delete device code after token exchange");
+        }
+
+        Ok(tokens)
     }
 }
 

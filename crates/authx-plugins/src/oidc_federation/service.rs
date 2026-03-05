@@ -180,7 +180,7 @@ where
                 .map_err(|e| AuthError::Internal(format!("lock poisoned: {e}")))?;
             let entry = pending
                 .remove(state)
-                .ok_or_else(|| AuthError::InvalidToken)?;
+                .ok_or(AuthError::InvalidToken)?;
             if entry.expires_at < Instant::now() {
                 return Err(AuthError::InvalidToken);
             }

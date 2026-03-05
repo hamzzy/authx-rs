@@ -20,7 +20,7 @@ use authx_plugins::{
     oidc_federation::OidcFederationService,
     oidc_provider::{
         jwks_from_public_pem, oidc_discovery_document, DeviceAuthorizationResponse,
-        DeviceCodeError, OidcProviderConfig, OidcProviderService, OidcTokenResponse,
+        DeviceCodeError, OidcProviderConfig, OidcProviderService,
     },
 };
 
@@ -237,15 +237,30 @@ where
         match state.service.poll_device_code(dc, &form.client_id).await {
             Ok(resp) => Json(resp).into_response(),
             Err(device_err) => {
-                let error_code = match device_err {
-                    DeviceCodeError::AuthorizationPending => "authorization_pending",
-                    DeviceCodeError::SlowDown => "slow_down",
-                    DeviceCodeError::ExpiredToken => "expired_token",
-                    DeviceCodeError::AccessDenied => "access_denied",
+                let (error_code, error_description) = match device_err {
+                    DeviceCodeError::AuthorizationPending => (
+                        "authorization_pending",
+                        "The user has not yet completed authorization.",
+                    ),
+                    DeviceCodeError::SlowDown => (
+                        "slow_down",
+                        "Polling too frequently. Increase interval by 5 seconds.",
+                    ),
+                    DeviceCodeError::ExpiredToken => (
+                        "expired_token",
+                        "The device code has expired.",
+                    ),
+                    DeviceCodeError::AccessDenied => (
+                        "access_denied",
+                        "The user denied the authorization request.",
+                    ),
                 };
                 (
                     StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({ "error": error_code })),
+                    Json(serde_json::json!({
+                        "error": error_code,
+                        "error_description": error_description
+                    })),
                 )
                     .into_response()
             }
@@ -335,7 +350,7 @@ pub struct DeviceVerifyQuery {
 async fn device_verification_page(
     Query(query): Query<DeviceVerifyQuery>,
 ) -> axum::response::Html<String> {
-    let prefilled = query.user_code.unwrap_or_default();
+    let prefilled = html_escape(&query.user_code.unwrap_or_default());
     axum::response::Html(format!(
         r#"<!DOCTYPE html>
 <html><head><title>Device Authorization</title></head>
@@ -496,4 +511,14 @@ where
             "token": token,
         })),
     ))
+}
+
+/// Minimal HTML escaping to prevent XSS in inline HTML values.
+fn html_escape(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
 }

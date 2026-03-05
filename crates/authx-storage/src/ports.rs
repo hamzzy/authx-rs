@@ -149,6 +149,7 @@ pub trait DeviceCodeRepository: Send + Sync + 'static {
     async fn authorize(&self, id: Uuid, user_id: Uuid) -> Result<()>;
     async fn deny(&self, id: Uuid) -> Result<()>;
     async fn update_last_polled(&self, id: Uuid, interval_secs: u32) -> Result<()>;
+    async fn delete(&self, id: Uuid) -> Result<()>;
     async fn delete_expired(&self) -> Result<u64>;
     async fn list_by_client(
         &self,
