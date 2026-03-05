@@ -11,15 +11,20 @@ use uuid::Uuid;
 use authx_core::{
     error::{AuthError, Result, StorageError},
     models::{
-        ApiKey, AuditLog, CreateApiKey, CreateAuditLog, CreateCredential, CreateInvite, CreateOrg,
-        CreateSession, CreateUser, Credential, CredentialKind, Invite, Membership, OAuthAccount,
-        Organization, Role, Session, UpdateUser, UpsertOAuthAccount, User,
+        ApiKey, AuditLog, AuthorizationCode, CreateApiKey, CreateAuditLog, CreateAuthorizationCode,
+        CreateCredential, CreateDeviceCode, CreateInvite, CreateOidcClient,
+        CreateOidcFederationProvider, CreateOidcToken, CreateOrg, CreateSession, CreateUser,
+        Credential, CredentialKind, DeviceCode, Invite, Membership, OAuthAccount, OidcClient,
+        OidcFederationProvider, OidcToken, Organization, Role, Session, UpdateUser,
+        UpsertOAuthAccount, User,
     },
 };
 
 use crate::ports::{
-    ApiKeyRepository, AuditLogRepository, CredentialRepository, InviteRepository,
-    OAuthAccountRepository, OrgRepository, SessionRepository, UserRepository,
+    ApiKeyRepository, AuditLogRepository, AuthorizationCodeRepository, CredentialRepository,
+    DeviceCodeRepository, InviteRepository, OAuthAccountRepository, OidcClientRepository,
+    OidcFederationProviderRepository, OidcTokenRepository, OrgRepository, SessionRepository,
+    UserRepository,
 };
 
 /// Acquire a read guard, recovering from a poisoned lock instead of panicking.
@@ -68,6 +73,11 @@ pub struct MemoryStore {
     api_keys: Arc<RwLock<Vec<ApiKey>>>,
     oauth_accounts: Arc<RwLock<Vec<OAuthAccount>>>,
     invites: Arc<RwLock<Vec<Invite>>>,
+    oidc_clients: Arc<RwLock<Vec<OidcClient>>>,
+    authorization_codes: Arc<RwLock<Vec<AuthorizationCode>>>,
+    oidc_tokens: Arc<RwLock<Vec<OidcToken>>>,
+    oidc_federation_providers: Arc<RwLock<Vec<OidcFederationProvider>>>,
+    device_codes: Arc<RwLock<Vec<DeviceCode>>>,
 }
 
 impl MemoryStore {
@@ -571,5 +581,290 @@ impl InviteRepository for MemoryStore {
         let now = Utc::now();
         invites.retain(|i| i.accepted_at.is_some() || i.expires_at > now);
         Ok((before - invites.len()) as u64)
+    }
+}
+
+// ── OidcClientRepository ───────────────────────────────────────────────────────
+
+#[async_trait]
+impl OidcClientRepository for MemoryStore {
+    async fn create(&self, data: CreateOidcClient) -> Result<OidcClient> {
+        let client_id = Uuid::new_v4().to_string();
+        let client = OidcClient {
+            id: Uuid::new_v4(),
+            client_id: client_id.clone(),
+            secret_hash: data.secret_hash,
+            name: data.name,
+            redirect_uris: data.redirect_uris,
+            grant_types: data.grant_types,
+            response_types: data.response_types,
+            allowed_scopes: data.allowed_scopes,
+            created_at: Utc::now(),
+        };
+        wlock!(self.oidc_clients, "oidc_clients").push(client.clone());
+        Ok(client)
+    }
+
+    async fn find_by_client_id(&self, client_id: &str) -> Result<Option<OidcClient>> {
+        Ok(rlock!(self.oidc_clients, "oidc_clients")
+            .iter()
+            .find(|c| c.client_id == client_id)
+            .cloned())
+    }
+
+    async fn list(&self, offset: u32, limit: u32) -> Result<Vec<OidcClient>> {
+        let clients = rlock!(self.oidc_clients, "oidc_clients");
+        Ok(clients
+            .iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
+}
+
+// ── AuthorizationCodeRepository ────────────────────────────────────────────────
+
+#[async_trait]
+impl AuthorizationCodeRepository for MemoryStore {
+    async fn create(&self, data: CreateAuthorizationCode) -> Result<AuthorizationCode> {
+        let code = AuthorizationCode {
+            id: Uuid::new_v4(),
+            code_hash: data.code_hash,
+            client_id: data.client_id,
+            user_id: data.user_id,
+            redirect_uri: data.redirect_uri,
+            scope: data.scope,
+            nonce: data.nonce,
+            code_challenge: data.code_challenge,
+            expires_at: data.expires_at,
+            used: false,
+        };
+        wlock!(self.authorization_codes, "authorization_codes").push(code.clone());
+        Ok(code)
+    }
+
+    async fn find_by_code_hash(&self, hash: &str) -> Result<Option<AuthorizationCode>> {
+        let now = Utc::now();
+        Ok(rlock!(self.authorization_codes, "authorization_codes")
+            .iter()
+            .find(|c| c.code_hash == hash && c.expires_at > now && !c.used)
+            .cloned())
+    }
+
+    async fn mark_used(&self, id: Uuid) -> Result<()> {
+        let mut codes = wlock!(self.authorization_codes, "authorization_codes");
+        let code = codes
+            .iter_mut()
+            .find(|c| c.id == id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        code.used = true;
+        Ok(())
+    }
+
+    async fn delete_expired(&self) -> Result<u64> {
+        let mut codes = wlock!(self.authorization_codes, "authorization_codes");
+        let before = codes.len();
+        let now = Utc::now();
+        codes.retain(|c| c.expires_at > now);
+        Ok((before - codes.len()) as u64)
+    }
+}
+
+// ── OidcTokenRepository ────────────────────────────────────────────────────────
+
+#[async_trait]
+impl OidcTokenRepository for MemoryStore {
+    async fn create(&self, data: CreateOidcToken) -> Result<OidcToken> {
+        let token = OidcToken {
+            id: Uuid::new_v4(),
+            token_hash: data.token_hash,
+            client_id: data.client_id,
+            user_id: data.user_id,
+            scope: data.scope,
+            token_type: data.token_type,
+            expires_at: data.expires_at,
+            revoked: false,
+            created_at: Utc::now(),
+        };
+        wlock!(self.oidc_tokens, "oidc_tokens").push(token.clone());
+        Ok(token)
+    }
+
+    async fn find_by_token_hash(&self, hash: &str) -> Result<Option<OidcToken>> {
+        let now = Utc::now();
+        Ok(rlock!(self.oidc_tokens, "oidc_tokens")
+            .iter()
+            .find(|t| {
+                t.token_hash == hash && !t.revoked && t.expires_at.map(|e| e > now).unwrap_or(true)
+            })
+            .cloned())
+    }
+
+    async fn revoke(&self, id: Uuid) -> Result<()> {
+        let mut tokens = wlock!(self.oidc_tokens, "oidc_tokens");
+        let t = tokens
+            .iter_mut()
+            .find(|t| t.id == id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        t.revoked = true;
+        Ok(())
+    }
+
+    async fn revoke_all_for_user_client(&self, user_id: Uuid, client_id: &str) -> Result<()> {
+        for t in wlock!(self.oidc_tokens, "oidc_tokens")
+            .iter_mut()
+            .filter(|t| t.user_id == user_id && t.client_id == client_id)
+        {
+            t.revoked = true;
+        }
+        Ok(())
+    }
+}
+
+// ── OidcFederationProviderRepository ──────────────────────────────────────────
+
+#[async_trait]
+impl OidcFederationProviderRepository for MemoryStore {
+    async fn create(&self, data: CreateOidcFederationProvider) -> Result<OidcFederationProvider> {
+        let provider = OidcFederationProvider {
+            id: Uuid::new_v4(),
+            name: data.name,
+            issuer: data.issuer,
+            client_id: data.client_id,
+            secret_enc: data.secret_enc,
+            scopes: data.scopes,
+            enabled: true,
+            created_at: Utc::now(),
+        };
+        wlock!(self.oidc_federation_providers, "oidc_federation_providers").push(provider.clone());
+        Ok(provider)
+    }
+
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<OidcFederationProvider>> {
+        Ok(
+            rlock!(self.oidc_federation_providers, "oidc_federation_providers")
+                .iter()
+                .find(|p| p.id == id)
+                .cloned(),
+        )
+    }
+
+    async fn find_by_name(&self, name: &str) -> Result<Option<OidcFederationProvider>> {
+        Ok(
+            rlock!(self.oidc_federation_providers, "oidc_federation_providers")
+                .iter()
+                .find(|p| p.name == name)
+                .cloned(),
+        )
+    }
+
+    async fn list_enabled(&self) -> Result<Vec<OidcFederationProvider>> {
+        Ok(
+            rlock!(self.oidc_federation_providers, "oidc_federation_providers")
+                .iter()
+                .filter(|p| p.enabled)
+                .cloned()
+                .collect(),
+        )
+    }
+}
+
+// ── DeviceCodeRepository ─────────────────────────────────────────────────────
+
+#[async_trait]
+impl DeviceCodeRepository for MemoryStore {
+    async fn create(&self, data: CreateDeviceCode) -> Result<DeviceCode> {
+        let dc = DeviceCode {
+            id: Uuid::new_v4(),
+            device_code_hash: data.device_code_hash,
+            user_code_hash: data.user_code_hash,
+            user_code: data.user_code,
+            client_id: data.client_id,
+            scope: data.scope,
+            expires_at: data.expires_at,
+            interval_secs: data.interval_secs,
+            authorized: false,
+            denied: false,
+            user_id: None,
+            last_polled_at: None,
+        };
+        wlock!(self.device_codes, "device_codes").push(dc.clone());
+        Ok(dc)
+    }
+
+    async fn find_by_device_code_hash(&self, hash: &str) -> Result<Option<DeviceCode>> {
+        let now = Utc::now();
+        Ok(rlock!(self.device_codes, "device_codes")
+            .iter()
+            .find(|d| d.device_code_hash == hash && d.expires_at > now)
+            .cloned())
+    }
+
+    async fn find_by_user_code_hash(&self, hash: &str) -> Result<Option<DeviceCode>> {
+        let now = Utc::now();
+        Ok(rlock!(self.device_codes, "device_codes")
+            .iter()
+            .find(|d| d.user_code_hash == hash && d.expires_at > now && !d.authorized && !d.denied)
+            .cloned())
+    }
+
+    async fn authorize(&self, id: Uuid, user_id: Uuid) -> Result<()> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        let dc = codes
+            .iter_mut()
+            .find(|d| d.id == id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        dc.authorized = true;
+        dc.user_id = Some(user_id);
+        Ok(())
+    }
+
+    async fn deny(&self, id: Uuid) -> Result<()> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        let dc = codes
+            .iter_mut()
+            .find(|d| d.id == id)
+            .ok_or(AuthError::Storage(StorageError::NotFound))?;
+        dc.denied = true;
+        Ok(())
+    }
+
+    async fn update_last_polled(&self, id: Uuid, interval_secs: u32) -> Result<()> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        if let Some(dc) = codes.iter_mut().find(|d| d.id == id) {
+            dc.last_polled_at = Some(Utc::now());
+            dc.interval_secs = interval_secs;
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, id: Uuid) -> Result<()> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        codes.retain(|d| d.id != id);
+        Ok(())
+    }
+
+    async fn delete_expired(&self) -> Result<u64> {
+        let mut codes = wlock!(self.device_codes, "device_codes");
+        let before = codes.len();
+        let now = Utc::now();
+        codes.retain(|d| d.expires_at > now);
+        Ok((before - codes.len()) as u64)
+    }
+
+    async fn list_by_client(
+        &self,
+        client_id: &str,
+        offset: u32,
+        limit: u32,
+    ) -> Result<Vec<DeviceCode>> {
+        Ok(rlock!(self.device_codes, "device_codes")
+            .iter()
+            .filter(|d| d.client_id == client_id)
+            .skip(offset as usize)
+            .take(limit as usize)
+            .cloned()
+            .collect())
     }
 }

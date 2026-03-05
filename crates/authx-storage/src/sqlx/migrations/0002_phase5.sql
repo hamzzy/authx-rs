@@ -1,4 +1,3 @@
--- Phase 5 schema additions
 
 -- Add username to users
 ALTER TABLE authx_users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;

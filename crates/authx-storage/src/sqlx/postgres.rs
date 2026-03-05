@@ -6,15 +6,20 @@ use uuid::Uuid;
 use authx_core::{
     error::{AuthError, Result, StorageError},
     models::{
-        ApiKey, AuditLog, CreateApiKey, CreateAuditLog, CreateCredential, CreateInvite, CreateOrg,
-        CreateSession, CreateUser, Credential, CredentialKind, Invite, Membership, OAuthAccount,
-        Organization, Role, Session, UpdateUser, UpsertOAuthAccount, User,
+        ApiKey, AuditLog, AuthorizationCode, CreateApiKey, CreateAuditLog, CreateAuthorizationCode,
+        CreateCredential, CreateDeviceCode, CreateInvite, CreateOidcClient,
+        CreateOidcFederationProvider, CreateOidcToken, CreateOrg, CreateSession, CreateUser,
+        Credential, CredentialKind, DeviceCode, Invite, Membership, OAuthAccount, OidcClient,
+        OidcFederationProvider, OidcToken, OidcTokenType, Organization, Role, Session, UpdateUser,
+        UpsertOAuthAccount, User,
     },
 };
 
 use crate::ports::{
-    ApiKeyRepository, AuditLogRepository, CredentialRepository, InviteRepository,
-    OAuthAccountRepository, OrgRepository, SessionRepository, UserRepository,
+    ApiKeyRepository, AuditLogRepository, AuthorizationCodeRepository, CredentialRepository,
+    DeviceCodeRepository, InviteRepository, OAuthAccountRepository, OidcClientRepository,
+    OidcFederationProviderRepository, OidcTokenRepository, OrgRepository, SessionRepository,
+    UserRepository,
 };
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -942,5 +947,482 @@ impl InviteRepository for PostgresStore {
         .await
         .map_err(db_err)?;
         Ok(result.rows_affected())
+    }
+}
+
+// ── OidcClientRepository ───────────────────────────────────────────────────────
+
+fn oidc_token_type_str(t: &OidcTokenType) -> &'static str {
+    match t {
+        OidcTokenType::Access => "access",
+        OidcTokenType::Refresh => "refresh",
+        OidcTokenType::DeviceAccess => "device_access",
+    }
+}
+
+fn oidc_token_type_from_str(s: &str) -> OidcTokenType {
+    match s {
+        "refresh" => OidcTokenType::Refresh,
+        "device_access" => OidcTokenType::DeviceAccess,
+        _ => OidcTokenType::Access,
+    }
+}
+
+fn map_oidc_client(r: &sqlx::postgres::PgRow) -> OidcClient {
+    OidcClient {
+        id: r.get("id"),
+        client_id: r.get("client_id"),
+        secret_hash: r.get("secret_hash"),
+        name: r.get("name"),
+        redirect_uris: r.get::<Vec<String>, _>("redirect_uris"),
+        grant_types: r.get::<Vec<String>, _>("grant_types"),
+        response_types: r.get::<Vec<String>, _>("response_types"),
+        allowed_scopes: r.get("allowed_scopes"),
+        created_at: r.get("created_at"),
+    }
+}
+
+#[async_trait]
+impl OidcClientRepository for PostgresStore {
+    async fn create(&self, data: CreateOidcClient) -> Result<OidcClient> {
+        let client_id = Uuid::new_v4().to_string();
+        let row = sqlx::query(
+            "INSERT INTO authx_oidc_clients \
+               (id, client_id, secret_hash, name, redirect_uris, grant_types, response_types, allowed_scopes) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
+             RETURNING id, client_id, secret_hash, name, redirect_uris, grant_types, response_types, allowed_scopes, created_at",
+        )
+        .bind(Uuid::new_v4())
+        .bind(&client_id)
+        .bind(&data.secret_hash)
+        .bind(&data.name)
+        .bind(&data.redirect_uris)
+        .bind(&data.grant_types)
+        .bind(&data.response_types)
+        .bind(&data.allowed_scopes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        tracing::debug!(client_id = %client_id, "oidc client created");
+        Ok(map_oidc_client(&row))
+    }
+
+    async fn find_by_client_id(&self, client_id: &str) -> Result<Option<OidcClient>> {
+        let row = sqlx::query(
+            "SELECT id, client_id, secret_hash, name, redirect_uris, grant_types, response_types, allowed_scopes, created_at \
+             FROM authx_oidc_clients WHERE client_id = $1",
+        )
+        .bind(client_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_oidc_client))
+    }
+
+    async fn list(&self, offset: u32, limit: u32) -> Result<Vec<OidcClient>> {
+        let rows = sqlx::query(
+            "SELECT id, client_id, secret_hash, name, redirect_uris, grant_types, response_types, allowed_scopes, created_at \
+             FROM authx_oidc_clients ORDER BY created_at ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(rows.iter().map(map_oidc_client).collect())
+    }
+}
+
+// ── AuthorizationCodeRepository ────────────────────────────────────────────────
+
+fn map_authorization_code(r: &sqlx::postgres::PgRow) -> AuthorizationCode {
+    AuthorizationCode {
+        id: r.get("id"),
+        code_hash: r.get("code_hash"),
+        client_id: r.get("client_id"),
+        user_id: r.get("user_id"),
+        redirect_uri: r.get("redirect_uri"),
+        scope: r.get("scope"),
+        nonce: r.get("nonce"),
+        code_challenge: r.get("code_challenge"),
+        expires_at: r.get("expires_at"),
+        used: r.get("used"),
+    }
+}
+
+#[async_trait]
+impl AuthorizationCodeRepository for PostgresStore {
+    async fn create(&self, data: CreateAuthorizationCode) -> Result<AuthorizationCode> {
+        let row = sqlx::query(
+            "INSERT INTO authx_oidc_authorization_codes \
+               (id, code_hash, client_id, user_id, redirect_uri, scope, nonce, code_challenge, expires_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) \
+             RETURNING id, code_hash, client_id, user_id, redirect_uri, scope, nonce, code_challenge, expires_at, used",
+        )
+        .bind(Uuid::new_v4())
+        .bind(&data.code_hash)
+        .bind(&data.client_id)
+        .bind(data.user_id)
+        .bind(&data.redirect_uri)
+        .bind(&data.scope)
+        .bind(data.nonce.as_deref())
+        .bind(data.code_challenge.as_deref())
+        .bind(data.expires_at)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        tracing::debug!(client_id = %data.client_id, "authorization code created");
+        Ok(map_authorization_code(&row))
+    }
+
+    async fn find_by_code_hash(&self, hash: &str) -> Result<Option<AuthorizationCode>> {
+        let row = sqlx::query(
+            "SELECT id, code_hash, client_id, user_id, redirect_uri, scope, nonce, code_challenge, expires_at, used \
+             FROM authx_oidc_authorization_codes WHERE code_hash = $1 AND expires_at > NOW() AND used = false",
+        )
+        .bind(hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_authorization_code))
+    }
+
+    async fn mark_used(&self, id: Uuid) -> Result<()> {
+        let result =
+            sqlx::query("UPDATE authx_oidc_authorization_codes SET used = true WHERE id = $1")
+                .bind(id)
+                .execute(&self.pool)
+                .await
+                .map_err(db_err)?;
+
+        if result.rows_affected() == 0 {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        Ok(())
+    }
+
+    async fn delete_expired(&self) -> Result<u64> {
+        let result =
+            sqlx::query("DELETE FROM authx_oidc_authorization_codes WHERE expires_at < NOW()")
+                .execute(&self.pool)
+                .await
+                .map_err(db_err)?;
+        Ok(result.rows_affected())
+    }
+}
+
+// ── OidcTokenRepository ────────────────────────────────────────────────────────
+
+fn map_oidc_token(r: &sqlx::postgres::PgRow) -> OidcToken {
+    OidcToken {
+        id: r.get("id"),
+        token_hash: r.get("token_hash"),
+        client_id: r.get("client_id"),
+        user_id: r.get("user_id"),
+        scope: r.get("scope"),
+        token_type: oidc_token_type_from_str(r.get::<&str, _>("token_type")),
+        expires_at: r.get("expires_at"),
+        revoked: r.get("revoked"),
+        created_at: r.get("created_at"),
+    }
+}
+
+#[async_trait]
+impl OidcTokenRepository for PostgresStore {
+    async fn create(&self, data: CreateOidcToken) -> Result<OidcToken> {
+        let row = sqlx::query(
+            "INSERT INTO authx_oidc_tokens \
+               (id, token_hash, client_id, user_id, scope, token_type, expires_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7) \
+             RETURNING id, token_hash, client_id, user_id, scope, token_type, expires_at, revoked, created_at",
+        )
+        .bind(Uuid::new_v4())
+        .bind(&data.token_hash)
+        .bind(&data.client_id)
+        .bind(data.user_id)
+        .bind(&data.scope)
+        .bind(oidc_token_type_str(&data.token_type))
+        .bind(data.expires_at)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        tracing::debug!(client_id = %data.client_id, "oidc token created");
+        Ok(map_oidc_token(&row))
+    }
+
+    async fn find_by_token_hash(&self, hash: &str) -> Result<Option<OidcToken>> {
+        let row = sqlx::query(
+            "SELECT id, token_hash, client_id, user_id, scope, token_type, expires_at, revoked, created_at \
+             FROM authx_oidc_tokens WHERE token_hash = $1 AND revoked = false",
+        )
+        .bind(hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        if let Some(ref r) = row {
+            let tok = map_oidc_token(r);
+            if let Some(exp) = tok.expires_at {
+                if exp < Utc::now() {
+                    return Ok(None);
+                }
+            }
+        }
+        Ok(row.as_ref().map(map_oidc_token))
+    }
+
+    async fn revoke(&self, id: Uuid) -> Result<()> {
+        let result = sqlx::query("UPDATE authx_oidc_tokens SET revoked = true WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+
+        if result.rows_affected() == 0 {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        Ok(())
+    }
+
+    async fn revoke_all_for_user_client(&self, user_id: Uuid, client_id: &str) -> Result<()> {
+        sqlx::query(
+            "UPDATE authx_oidc_tokens SET revoked = true WHERE user_id = $1 AND client_id = $2",
+        )
+        .bind(user_id)
+        .bind(client_id)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(())
+    }
+}
+
+// ── OidcFederationProviderRepository ──────────────────────────────────────────
+
+fn map_oidc_federation_provider(r: &sqlx::postgres::PgRow) -> OidcFederationProvider {
+    OidcFederationProvider {
+        id: r.get("id"),
+        name: r.get("name"),
+        issuer: r.get("issuer"),
+        client_id: r.get("client_id"),
+        secret_enc: r.get("secret_enc"),
+        scopes: r.get("scopes"),
+        enabled: r.get("enabled"),
+        created_at: r.get("created_at"),
+    }
+}
+
+#[async_trait]
+impl OidcFederationProviderRepository for PostgresStore {
+    async fn create(&self, data: CreateOidcFederationProvider) -> Result<OidcFederationProvider> {
+        let row = sqlx::query(
+            "INSERT INTO authx_oidc_federation_providers \
+               (id, name, issuer, client_id, secret_enc, scopes, enabled) \
+             VALUES ($1, $2, $3, $4, $5, $6, true) \
+             RETURNING id, name, issuer, client_id, secret_enc, scopes, enabled, created_at",
+        )
+        .bind(Uuid::new_v4())
+        .bind(&data.name)
+        .bind(&data.issuer)
+        .bind(&data.client_id)
+        .bind(&data.secret_enc)
+        .bind(&data.scopes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        tracing::debug!(name = %data.name, "oidc federation provider created");
+        Ok(map_oidc_federation_provider(&row))
+    }
+
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<OidcFederationProvider>> {
+        let row = sqlx::query(
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+             FROM authx_oidc_federation_providers WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_oidc_federation_provider))
+    }
+
+    async fn find_by_name(&self, name: &str) -> Result<Option<OidcFederationProvider>> {
+        let row = sqlx::query(
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+             FROM authx_oidc_federation_providers WHERE name = $1",
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_oidc_federation_provider))
+    }
+
+    async fn list_enabled(&self) -> Result<Vec<OidcFederationProvider>> {
+        let rows = sqlx::query(
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+             FROM authx_oidc_federation_providers WHERE enabled = true ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(rows.iter().map(map_oidc_federation_provider).collect())
+    }
+}
+
+// ── DeviceCodeRepository ─────────────────────────────────────────────────────
+
+const DEVICE_CODE_COLS: &str = "id, device_code_hash, user_code_hash, user_code, client_id, \
+                                scope, expires_at, interval_secs, authorized, denied, user_id, \
+                                last_polled_at";
+
+fn map_device_code(r: &sqlx::postgres::PgRow) -> DeviceCode {
+    DeviceCode {
+        id: r.get("id"),
+        device_code_hash: r.get("device_code_hash"),
+        user_code_hash: r.get("user_code_hash"),
+        user_code: r.get("user_code"),
+        client_id: r.get("client_id"),
+        scope: r.get("scope"),
+        expires_at: r.get("expires_at"),
+        interval_secs: r.get::<i32, _>("interval_secs") as u32,
+        authorized: r.get("authorized"),
+        denied: r.get("denied"),
+        user_id: r.get("user_id"),
+        last_polled_at: r.get("last_polled_at"),
+    }
+}
+
+#[async_trait]
+impl DeviceCodeRepository for PostgresStore {
+    async fn create(&self, data: CreateDeviceCode) -> Result<DeviceCode> {
+        let row = sqlx::query(&format!(
+            "INSERT INTO authx_device_codes \
+               (id, device_code_hash, user_code_hash, user_code, client_id, scope, expires_at, interval_secs) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
+             RETURNING {DEVICE_CODE_COLS}"
+        ))
+        .bind(Uuid::new_v4())
+        .bind(&data.device_code_hash)
+        .bind(&data.user_code_hash)
+        .bind(&data.user_code)
+        .bind(&data.client_id)
+        .bind(&data.scope)
+        .bind(data.expires_at)
+        .bind(data.interval_secs as i32)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        tracing::debug!(client_id = %data.client_id, "device code created");
+        Ok(map_device_code(&row))
+    }
+
+    async fn find_by_device_code_hash(&self, hash: &str) -> Result<Option<DeviceCode>> {
+        let row = sqlx::query(&format!(
+            "SELECT {DEVICE_CODE_COLS} FROM authx_device_codes \
+             WHERE device_code_hash = $1 AND expires_at > NOW()"
+        ))
+        .bind(hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_device_code))
+    }
+
+    async fn find_by_user_code_hash(&self, hash: &str) -> Result<Option<DeviceCode>> {
+        let row = sqlx::query(&format!(
+            "SELECT {DEVICE_CODE_COLS} FROM authx_device_codes \
+             WHERE user_code_hash = $1 AND expires_at > NOW() \
+             AND authorized = false AND denied = false"
+        ))
+        .bind(hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(row.as_ref().map(map_device_code))
+    }
+
+    async fn authorize(&self, id: Uuid, user_id: Uuid) -> Result<()> {
+        let result = sqlx::query(
+            "UPDATE authx_device_codes SET authorized = true, user_id = $2 WHERE id = $1",
+        )
+        .bind(id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+
+        if result.rows_affected() == 0 {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        tracing::debug!(id = %id, "device code authorized");
+        Ok(())
+    }
+
+    async fn deny(&self, id: Uuid) -> Result<()> {
+        let result = sqlx::query("UPDATE authx_device_codes SET denied = true WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+
+        if result.rows_affected() == 0 {
+            return Err(AuthError::Storage(StorageError::NotFound));
+        }
+        tracing::debug!(id = %id, "device code denied");
+        Ok(())
+    }
+
+    async fn update_last_polled(&self, id: Uuid, interval_secs: u32) -> Result<()> {
+        sqlx::query(
+            "UPDATE authx_device_codes SET last_polled_at = NOW(), interval_secs = $2 WHERE id = $1",
+        )
+        .bind(id)
+        .bind(interval_secs as i32)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(())
+    }
+
+    async fn delete(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM authx_device_codes WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+        Ok(())
+    }
+
+    async fn delete_expired(&self) -> Result<u64> {
+        let result = sqlx::query("DELETE FROM authx_device_codes WHERE expires_at < NOW()")
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+        Ok(result.rows_affected())
+    }
+
+    async fn list_by_client(
+        &self,
+        client_id: &str,
+        offset: u32,
+        limit: u32,
+    ) -> Result<Vec<DeviceCode>> {
+        let rows = sqlx::query(&format!(
+            "SELECT {DEVICE_CODE_COLS} FROM authx_device_codes \
+             WHERE client_id = $1 ORDER BY expires_at DESC LIMIT $2 OFFSET $3"
+        ))
+        .bind(client_id)
+        .bind(limit as i64)
+        .bind(offset as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(rows.iter().map(map_device_code).collect())
     }
 }

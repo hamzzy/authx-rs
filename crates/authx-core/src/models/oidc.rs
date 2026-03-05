@@ -28,6 +28,8 @@ pub struct CreateOidcClient {
     pub grant_types: Vec<String>,
     pub response_types: Vec<String>,
     pub allowed_scopes: String,
+    /// SHA-256 hash of the client secret (empty for public clients).
+    pub secret_hash: String,
 }
 
 // ── Authorization Code ────────────────────────────────────────────────────────
@@ -108,7 +110,9 @@ pub struct DeviceCode {
     pub expires_at: DateTime<Utc>,
     pub interval_secs: u32,
     pub authorized: bool,
+    pub denied: bool,
     pub user_id: Option<Uuid>,
+    pub last_polled_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
