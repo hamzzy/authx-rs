@@ -1203,7 +1203,8 @@ impl OidcTokenRepository for PostgresStore {
 // ── OidcFederationProviderRepository ──────────────────────────────────────────
 
 fn map_oidc_federation_provider(r: &sqlx::postgres::PgRow) -> OidcFederationProvider {
-    let claim_mapping_json: serde_json::Value = r.try_get("claim_mapping").unwrap_or(serde_json::json!([]));
+    let claim_mapping_json: serde_json::Value =
+        r.try_get("claim_mapping").unwrap_or(serde_json::json!([]));
     let claim_mapping = serde_json::from_value(claim_mapping_json).unwrap_or_default();
     OidcFederationProvider {
         id: r.get("id"),
@@ -1222,7 +1223,8 @@ fn map_oidc_federation_provider(r: &sqlx::postgres::PgRow) -> OidcFederationProv
 #[async_trait]
 impl OidcFederationProviderRepository for PostgresStore {
     async fn create(&self, data: CreateOidcFederationProvider) -> Result<OidcFederationProvider> {
-        let claim_mapping_json = serde_json::to_value(&data.claim_mapping).unwrap_or(serde_json::json!([]));
+        let claim_mapping_json =
+            serde_json::to_value(&data.claim_mapping).unwrap_or(serde_json::json!([]));
         let row = sqlx::query(
             "INSERT INTO authx_oidc_federation_providers \
                (id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled) \

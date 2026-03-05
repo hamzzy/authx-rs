@@ -140,7 +140,11 @@ fn event_to_audit(event: &AuthEvent) -> CreateAuditLog {
             ip_address: None,
             metadata: None,
         },
-        AuthEvent::OidcClientCreated { client_id, name, actor_id } => CreateAuditLog {
+        AuthEvent::OidcClientCreated {
+            client_id,
+            name,
+            actor_id,
+        } => CreateAuditLog {
             user_id: *actor_id,
             org_id: None,
             action: "oidc.client_created".into(),
@@ -149,7 +153,10 @@ fn event_to_audit(event: &AuthEvent) -> CreateAuditLog {
             ip_address: None,
             metadata: Some(serde_json::json!({ "name": name })),
         },
-        AuthEvent::OidcClientDeleted { client_id, actor_id } => CreateAuditLog {
+        AuthEvent::OidcClientDeleted {
+            client_id,
+            actor_id,
+        } => CreateAuditLog {
             user_id: *actor_id,
             org_id: None,
             action: "oidc.client_deleted".into(),
@@ -158,7 +165,11 @@ fn event_to_audit(event: &AuthEvent) -> CreateAuditLog {
             ip_address: None,
             metadata: None,
         },
-        AuthEvent::OidcFederationProviderCreated { provider_id, name, actor_id } => CreateAuditLog {
+        AuthEvent::OidcFederationProviderCreated {
+            provider_id,
+            name,
+            actor_id,
+        } => CreateAuditLog {
             user_id: *actor_id,
             org_id: None,
             action: "oidc.federation_provider_created".into(),
@@ -167,7 +178,10 @@ fn event_to_audit(event: &AuthEvent) -> CreateAuditLog {
             ip_address: None,
             metadata: Some(serde_json::json!({ "name": name })),
         },
-        AuthEvent::OidcFederationProviderDeleted { provider_id, actor_id } => CreateAuditLog {
+        AuthEvent::OidcFederationProviderDeleted {
+            provider_id,
+            actor_id,
+        } => CreateAuditLog {
             user_id: *actor_id,
             org_id: None,
             action: "oidc.federation_provider_deleted".into(),

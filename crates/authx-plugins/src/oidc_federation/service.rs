@@ -360,13 +360,9 @@ where
                                 .or(roles.first())
                                 .map(|r| r.id);
                             if let Some(rid) = role_id {
-                                let _ = OrgRepository::add_member(
-                                    &self.storage,
-                                    org.id,
-                                    user_id,
-                                    rid,
-                                )
-                                .await;
+                                let _ =
+                                    OrgRepository::add_member(&self.storage, org.id, user_id, rid)
+                                        .await;
                             }
                         }
                         resolved_org_id = Some(org.id);
@@ -414,11 +410,9 @@ fn rule_matches(rule: &ClaimMappingRule, claims: &serde_json::Value) -> bool {
         },
         "contains" => match claim_value {
             serde_json::Value::String(s) => s.contains(&rule.match_value),
-            serde_json::Value::Array(arr) => arr.iter().any(|v| {
-                v.as_str()
-                    .map(|s| s == rule.match_value)
-                    .unwrap_or(false)
-            }),
+            serde_json::Value::Array(arr) => arr
+                .iter()
+                .any(|v| v.as_str().map(|s| s == rule.match_value).unwrap_or(false)),
             _ => false,
         },
         "exists" => true, // claim exists, that's enough

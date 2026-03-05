@@ -468,11 +468,14 @@ where
     .await
     {
         Ok(provider) => {
-            state.admin.events().emit(AuthEvent::OidcFederationProviderCreated {
-                provider_id: provider.id,
-                name: provider.name.clone(),
-                actor_id: None,
-            });
+            state
+                .admin
+                .events()
+                .emit(AuthEvent::OidcFederationProviderCreated {
+                    provider_id: provider.id,
+                    name: provider.name.clone(),
+                    actor_id: None,
+                });
             (StatusCode::CREATED, Json(provider)).into_response()
         }
         Err(e) => {
@@ -498,9 +501,7 @@ struct TestConnectionResult {
     error: Option<String>,
 }
 
-async fn test_federation_connection<S>(
-    Json(body): Json<TestConnectionBody>,
-) -> impl IntoResponse
+async fn test_federation_connection<S>(Json(body): Json<TestConnectionBody>) -> impl IntoResponse
 where
     S: UserRepository
         + SessionRepository

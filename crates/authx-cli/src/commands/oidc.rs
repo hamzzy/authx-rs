@@ -148,16 +148,16 @@ async fn list_clients(args: ClientListArgs) -> Result<()> {
         .context("list clients")?;
 
     if clients.is_empty() {
-        println!("No OIDC clients found.");
+        tracing::info!("No OIDC clients found.");
         return Ok(());
     }
 
-    println!("{:<38} {:<32} {}", "ID", "Client ID", "Name");
-    println!("{}", "-".repeat(90));
+    tracing::info!("{:<38} {:<32} Name", "ID", "Client ID");
+    tracing::info!("{}", "-".repeat(90));
     for c in &clients {
-        println!("{:<38} {:<32} {}", c.id, c.client_id, c.name);
+        tracing::info!("{:<38} {:<32} {}", c.id, c.client_id, c.name);
     }
-    println!("\n{} client(s) shown.", clients.len());
+    tracing::info!("{} client(s) shown.", clients.len());
     Ok(())
 }
 
@@ -196,16 +196,16 @@ async fn create_client(args: ClientCreateArgs) -> Result<()> {
     .await
     .context("create client")?;
 
-    println!("OIDC client created:");
-    println!("  ID:         {}", client.id);
-    println!("  Client ID:  {}", client.client_id);
-    println!("  Name:       {}", client.name);
-    println!("  Redirects:  {}", client.redirect_uris.join(", "));
-    println!("  Scopes:     {}", client.allowed_scopes);
+    tracing::info!("OIDC client created:");
+    tracing::info!("  ID:         {}", client.id);
+    tracing::info!("  Client ID:  {}", client.client_id);
+    tracing::info!("  Name:       {}", client.name);
+    tracing::info!("  Redirects:  {}", client.redirect_uris.join(", "));
+    tracing::info!("  Scopes:     {}", client.allowed_scopes);
     if args.client_secret.is_some() {
-        println!("  Type:       confidential (secret hashed)");
+        tracing::info!("  Type:       confidential (secret hashed)");
     } else {
-        println!("  Type:       public (no secret)");
+        tracing::info!("  Type:       public (no secret)");
     }
     Ok(())
 }
@@ -217,16 +217,16 @@ async fn list_federation(_args: FederationListArgs) -> Result<()> {
         .context("list providers")?;
 
     if providers.is_empty() {
-        println!("No federation providers found.");
+        tracing::info!("No federation providers found.");
         return Ok(());
     }
 
-    println!("{:<38} {:<18} {:<40} {}", "ID", "Name", "Issuer", "Scopes");
-    println!("{}", "-".repeat(110));
+    tracing::info!("{:<38} {:<18} {:<40} Scopes", "ID", "Name", "Issuer");
+    tracing::info!("{}", "-".repeat(110));
     for p in &providers {
-        println!("{:<38} {:<18} {:<40} {}", p.id, p.name, p.issuer, p.scopes);
+        tracing::info!("{:<38} {:<18} {:<40} {}", p.id, p.name, p.issuer, p.scopes);
     }
-    println!("\n{} provider(s) shown.", providers.len());
+    tracing::info!("{} provider(s) shown.", providers.len());
     Ok(())
 }
 
@@ -258,11 +258,11 @@ async fn create_federation(args: FederationCreateArgs) -> Result<()> {
     .await
     .context("create federation provider")?;
 
-    println!("Federation provider created:");
-    println!("  ID:      {}", provider.id);
-    println!("  Name:    {}", provider.name);
-    println!("  Issuer:  {}", provider.issuer);
-    println!("  Scopes:  {}", provider.scopes);
+    tracing::info!("Federation provider created:");
+    tracing::info!("  ID:      {}", provider.id);
+    tracing::info!("  Name:    {}", provider.name);
+    tracing::info!("  Issuer:  {}", provider.issuer);
+    tracing::info!("  Scopes:  {}", provider.scopes);
     Ok(())
 }
 
@@ -274,21 +274,28 @@ async fn list_device_codes(args: DeviceListArgs) -> Result<()> {
             .context("list device codes")?;
 
     if codes.is_empty() {
-        println!("No device codes found for client '{}'.", args.client_id);
+        tracing::info!("No device codes found for client '{}'.", args.client_id);
         return Ok(());
     }
 
-    println!(
-        "{:<38} {:<12} {:<12} {:<12} {}",
-        "ID", "User Code", "Authorized", "Denied", "Expires At"
+    tracing::info!(
+        "{:<38} {:<12} {:<12} {:<12} Expires At",
+        "ID",
+        "User Code",
+        "Authorized",
+        "Denied"
     );
-    println!("{}", "-".repeat(100));
+    tracing::info!("{}", "-".repeat(100));
     for dc in &codes {
-        println!(
+        tracing::info!(
             "{:<38} {:<12} {:<12} {:<12} {}",
-            dc.id, dc.user_code, dc.authorized, dc.denied, dc.expires_at
+            dc.id,
+            dc.user_code,
+            dc.authorized,
+            dc.denied,
+            dc.expires_at
         );
     }
-    println!("\n{} code(s) shown.", codes.len());
+    tracing::info!("{} code(s) shown.", codes.len());
     Ok(())
 }

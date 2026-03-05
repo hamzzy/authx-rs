@@ -514,7 +514,10 @@ where
                 let extra = claims.extra;
                 return Ok(IntrospectionResponse {
                     active: true,
-                    scope: extra.get("scope").and_then(|v| v.as_str()).map(String::from),
+                    scope: extra
+                        .get("scope")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     client_id: extra.get("aud").and_then(|v| v.as_str()).map(String::from),
                     username: None,
                     token_type: Some("access_token".into()),

@@ -197,6 +197,7 @@ dependencies = [
  "chrono",
  "clap",
  "hex",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "tokio",
@@ -338,8 +339,10 @@ version = "0.1.0"
 dependencies = [
  "authx-axum",
  "authx-core",
+ "authx-plugins",
  "authx-storage",
  "axum",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "tokio",

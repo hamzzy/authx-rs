@@ -48,16 +48,16 @@ async fn list(args: ListArgs) -> Result<()> {
         .context("failed to list users")?;
 
     if users.is_empty() {
-        println!("No users found.");
+        tracing::info!("No users found.");
         return Ok(());
     }
 
-    println!("{:<38} {:<32} Verified", "ID", "Email");
-    println!("{}", "-".repeat(80));
+    tracing::info!("{:<38} {:<32} Verified", "ID", "Email");
+    tracing::info!("{}", "-".repeat(80));
     for u in &users {
-        println!("{:<38} {:<32} {}", u.id, u.email, u.email_verified);
+        tracing::info!("{:<38} {:<32} {}", u.id, u.email, u.email_verified);
     }
-    println!("\n{} user(s) shown.", users.len());
+    tracing::info!("{} user(s) shown.", users.len());
     Ok(())
 }
 
@@ -74,11 +74,11 @@ async fn create(args: CreateArgs) -> Result<()> {
     .await
     .context("failed to create user")?;
 
-    println!("Created user:");
-    println!("  ID:       {}", user.id);
-    println!("  Email:    {}", user.email);
+    tracing::info!("Created user:");
+    tracing::info!("  ID:       {}", user.id);
+    tracing::info!("  Email:    {}", user.email);
     if let Some(ref uname) = user.username {
-        println!("  Username: {}", uname);
+        tracing::info!("  Username: {}", uname);
     }
     Ok(())
 }

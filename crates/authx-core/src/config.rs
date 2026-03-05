@@ -135,7 +135,10 @@ impl AuthxConfig {
                 defaults.lockout_max_failures,
             ),
             lockout_window: Duration::from_secs(
-                env_parse("AUTHX_LOCKOUT_MINUTES", defaults.lockout_window.as_secs() / 60) * 60,
+                env_parse(
+                    "AUTHX_LOCKOUT_MINUTES",
+                    defaults.lockout_window.as_secs() / 60,
+                ) * 60,
             ),
             encryption_key_hex: std::env::var("AUTHX_ENCRYPTION_KEY")
                 .ok()

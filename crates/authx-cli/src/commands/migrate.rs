@@ -22,6 +22,6 @@ pub async fn run(args: MigrateArgs) -> Result<()> {
         .context("migration failed")?;
 
     tracing::info!("migrations complete");
-    println!("Migrations applied successfully.");
+    tracing::info!("Migrations applied successfully.");
     Ok(())
 }

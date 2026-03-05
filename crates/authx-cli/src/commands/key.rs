@@ -78,13 +78,12 @@ async fn generate(args: GenerateArgs) -> Result<()> {
         .await
         .context("failed to generate key")?;
 
-    println!("API key generated:");
-    println!("  Key ID:  {}", resp.key.id);
-    println!("  Prefix:  {}", resp.key.prefix);
-    println!("  Name:    {}", resp.key.name);
-    println!();
-    println!("  RAW KEY (shown once — save it now):");
-    println!("  {}", resp.raw_key);
+    tracing::info!("API key generated:");
+    tracing::info!("  Key ID:  {}", resp.key.id);
+    tracing::info!("  Prefix:  {}", resp.key.prefix);
+    tracing::info!("  Name:    {}", resp.key.name);
+    tracing::info!("  RAW KEY (shown once — save it now):");
+    tracing::info!("  {}", resp.raw_key);
     Ok(())
 }
 
@@ -97,15 +96,15 @@ async fn list(args: ListArgs) -> Result<()> {
         .context("failed to list keys")?;
 
     if keys.is_empty() {
-        println!("No API keys found for this user.");
+        tracing::info!("No API keys found for this user.");
         return Ok(());
     }
 
-    println!("{:<38} {:<10} {:<24} Expires", "Key ID", "Prefix", "Name");
-    println!("{}", "-".repeat(90));
+    tracing::info!("{:<38} {:<10} {:<24} Expires", "Key ID", "Prefix", "Name");
+    tracing::info!("{}", "-".repeat(90));
     for k in &keys {
         let exp = k.expires_at.map_or("never".into(), |t| t.to_rfc3339());
-        println!("{:<38} {:<10} {:<24} {}", k.id, k.prefix, k.name, exp);
+        tracing::info!("{:<38} {:<10} {:<24} {}", k.id, k.prefix, k.name, exp);
     }
     Ok(())
 }
@@ -116,6 +115,6 @@ async fn revoke(args: RevokeArgs) -> Result<()> {
     svc.revoke(args.user_id, args.key_id)
         .await
         .context("failed to revoke key")?;
-    println!("API key {} revoked.", args.key_id);
+    tracing::info!("API key {} revoked.", args.key_id);
     Ok(())
 }

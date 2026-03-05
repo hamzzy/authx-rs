@@ -18,6 +18,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Initialize an authx project scaffold.
+    Init(commands::init::InitArgs),
+
+    /// Seed demo data (admin user, org, OIDC client).
+    Seed(commands::seed::SeedArgs),
+
     /// Start the authx HTTP server.
     Serve(commands::serve::ServeArgs),
 
@@ -47,6 +53,8 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Init(args) => commands::init::run(args).await,
+        Command::Seed(args) => commands::seed::run(args).await,
         Command::Serve(args) => commands::serve::run(args).await,
         Command::Migrate(args) => commands::migrate::run(args).await,
         Command::User(cmd) => commands::user::run(cmd).await,

@@ -3,7 +3,6 @@ title: Quick Start
 description: Get an authx-rs Axum server running in under 5 minutes.
 ---
 
-import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 <Steps>
 

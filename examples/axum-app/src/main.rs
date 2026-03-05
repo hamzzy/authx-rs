@@ -1,4 +1,4 @@
-/// axum-app — minimal Axum integration example for authx-rs
+/// axum-app — full Axum integration example for authx-rs
 ///
 /// Demonstrates:
 ///  - MemoryStore (zero config, no DB required to run)
@@ -9,6 +9,8 @@
 ///  - Per-device session listing and revocation
 ///  - Per-IP rate limiting on auth endpoints
 ///  - Brute-force / account lockout after repeated failures
+///  - OIDC Provider (authx as IdP) — /oidc/.well-known/openid-configuration
+///  - OIDC Federation (inbound SSO) — /auth/federation/:provider/begin
 ///
 /// Run:
 ///   cargo run -p axum-app
@@ -32,12 +34,12 @@
 ///   # Protected: list all active sessions
 ///   curl -s -b /tmp/jar http://localhost:3000/auth/sessions
 ///
-///   # Sign out (all devices)
-///   curl -s -b /tmp/jar -X POST http://localhost:3000/auth/sign-out/all \
-///        -H 'Origin: http://localhost:3000'
+///   # OIDC discovery
+///   curl -s http://localhost:3000/oidc/.well-known/openid-configuration
 ///
 ///   # Protected app route
 ///   curl -s -b /tmp/jar http://localhost:3000/me
+use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{middleware, response::Json, routing::get, Router};
@@ -45,11 +47,18 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use authx_axum::{
-    csrf_middleware, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer, RequireAuth,
-    SessionLayer,
+    csrf_middleware, oidc_federation_router, oidc_provider_router, AuthxState, CsrfConfig,
+    OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth, SessionLayer,
 };
 use authx_core::brute_force::LockoutConfig;
+use authx_core::KeyRotationStore;
+use authx_plugins::oidc_provider::OidcProviderConfig;
+use authx_plugins::{oidc_federation::OidcFederationService, oidc_provider::OidcProviderService};
 use authx_storage::MemoryStore;
+
+// Ed25519 test keys — NEVER use in production; generate your own.
+const PRIV_PEM: &[u8] = b"-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIJ+DYDHbiFQiDpMqQR5JN9QOCiIxj7T/XmVbz3Cg+xvL\n-----END PRIVATE KEY-----\n";
+const PUB_PEM: &[u8] = b"-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAoNFBPj4h5jFITR2XlDqz8qFjNXaXFJF3mJoSBpVwC1E=\n-----END PUBLIC KEY-----\n";
 
 #[tokio::main]
 async fn main() {
@@ -81,16 +90,62 @@ async fn main() {
         .layer(auth_rate_limit)
         .route_layer(middleware::from_fn_with_state(csrf_config, csrf_middleware));
 
+    // ── OIDC Provider (authx as IdP) ────────────────────────────────────────
+    let key_store = KeyRotationStore::new(3);
+    key_store
+        .add_key("v1", PRIV_PEM, PUB_PEM)
+        .expect("test key pair should load");
+
+    let oidc_config = OidcProviderConfig {
+        issuer: "http://localhost:3000".into(),
+        key_store: key_store.clone(),
+        access_token_ttl_secs: 3600,
+        id_token_ttl_secs: 3600,
+        refresh_token_ttl_secs: 60 * 60 * 24 * 30,
+        auth_code_ttl_secs: 600,
+        device_code_ttl_secs: 600,
+        device_code_interval_secs: 5,
+        verification_uri: "http://localhost:3000/oidc/device".into(),
+    };
+
+    let oidc_service = OidcProviderService::new(store.clone(), oidc_config.clone());
+
+    let oidc_state = OidcProviderState {
+        service: Arc::new(oidc_service),
+        config: oidc_config,
+        issuer: "http://localhost:3000".into(),
+        base_path: "/oidc".into(),
+        public_pem: PUB_PEM.to_vec(),
+        jwks_kid: "v1".into(),
+    };
+
+    let oidc_router = oidc_provider_router(oidc_state);
+
+    // ── OIDC Federation (inbound SSO from external IdPs) ────────────────────
+    // To use: create a federation provider record (via dashboard or direct DB),
+    // then redirect users to /auth/federation/{provider}/begin?redirect_uri=...
+    let encryption_key: [u8; 32] = rand::random();
+    let federation_svc = OidcFederationService::new(
+        store.clone(),
+        60 * 60 * 24 * 30, // session TTL
+        encryption_key,
+    );
+    let federation_router = oidc_federation_router(Arc::new(federation_svc));
+
     let app = Router::new()
         .route("/health", get(health))
         .route("/me", get(me))
         .nest("/auth", auth_router)
+        .nest("/auth/federation", federation_router)
+        .nest("/oidc", oidc_router)
         // SessionLayer resolves Identity on every request
         .layer(SessionLayer::new(store))
         .layer(TraceLayer::new_for_http());
 
     let addr = "0.0.0.0:3000";
     tracing::info!("listening on http://{addr}");
+    tracing::info!("OIDC discovery: http://{addr}/oidc/.well-known/openid-configuration");
+    tracing::info!("Federation SSO: http://{addr}/auth/federation/{{provider}}/begin");
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
