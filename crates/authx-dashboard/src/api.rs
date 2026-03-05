@@ -431,15 +431,29 @@ where
         + 'static,
 {
     let storage = state.admin.storage();
-
-    // For now, the dashboard expects the server to provide an encryption key
-    // via configuration; the OIDC federation service already uses that same
-    // key. Reuse that here by delegating token encryption to the service in
-    // application code — the dashboard only accepts plaintext secrets.
-    //
-    // Here we simply store the secret as-is; production apps should wire this
-    // endpoint to the same encryption key used by `OidcFederationService`.
-    let secret_enc = body.client_secret.clone();
+    let encryption_key = match state.encryption_key {
+        Some(key) => key,
+        None => {
+            tracing::error!(
+                "dashboard: refusing to create federation provider without encryption key"
+            );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError {
+                    error: "missing_encryption_key",
+                }),
+            )
+                .into_response();
+        }
+    };
+    let secret_enc =
+        match authx_core::crypto::encrypt(&encryption_key, body.client_secret.as_bytes()) {
+            Ok(value) => value,
+            Err(e) => {
+                tracing::error!(error = %e, "dashboard: encrypt federation secret failed");
+                return server_error().into_response();
+            }
+        };
 
     match OidcFederationProviderRepository::create(
         storage,

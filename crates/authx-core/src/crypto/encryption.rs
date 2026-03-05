@@ -54,6 +54,27 @@ pub fn decrypt(key: &[u8; 32], hex_blob: &str) -> Result<Vec<u8>> {
     Ok(plaintext)
 }
 
+/// Decode a hex-encoded AES-256 key into a fixed `[u8; 32]`.
+pub fn decode_aes256_key_hex(input: &str) -> Result<[u8; 32]> {
+    let decoded = hex::decode(input.trim())
+        .map_err(|_| AuthError::Internal("failed to decode encryption key hex".into()))?;
+    if decoded.len() != 32 {
+        return Err(AuthError::Internal(
+            "encryption key must decode to 32 bytes (AES-256)".into(),
+        ));
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&decoded);
+    Ok(key)
+}
+
+/// Load and decode a hex-encoded AES-256 key from an environment variable.
+pub fn encryption_key_from_env(var_name: &str) -> Result<[u8; 32]> {
+    let raw = std::env::var(var_name)
+        .map_err(|_| AuthError::Internal(format!("{var_name} is not set")))?;
+    decode_aes256_key_hex(&raw)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,5 +112,16 @@ mod tests {
     fn truncated_blob_fails() {
         let key = test_key();
         assert!(decrypt(&key, "deadbeef").is_err());
+    }
+
+    #[test]
+    fn decode_aes256_key_hex_success() {
+        let key = decode_aes256_key_hex(&"11".repeat(32)).unwrap();
+        assert_eq!(key.len(), 32);
+    }
+
+    #[test]
+    fn decode_aes256_key_hex_rejects_wrong_length() {
+        assert!(decode_aes256_key_hex("deadbeef").is_err());
     }
 }

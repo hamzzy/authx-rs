@@ -7,6 +7,9 @@
 //! let dashboard = DashboardState::new(store.clone(), events.clone(), 86400);
 //! let app = Router::new()
 //!     .nest("/_authx", dashboard.router("my-secret-admin-token"));
+//!
+//! // For federation provider secret encryption:
+//! // export AUTHX_ENCRYPTION_KEY="$(openssl rand -hex 32)"
 //! ```
 //!
 //! All API routes require `Authorization: Bearer <admin_token>`.
@@ -38,6 +41,7 @@ use subtle::ConstantTimeEq;
 pub struct DashboardState<S> {
     pub(crate) admin: Arc<AdminService<S>>,
     pub(crate) token: Arc<String>,
+    pub(crate) encryption_key: Option<[u8; 32]>,
 }
 
 impl<S> DashboardState<S>
@@ -55,10 +59,29 @@ where
         + 'static,
 {
     pub fn new(storage: S, events: EventBus, session_ttl_secs: i64) -> Self {
+        let encryption_key = match authx_core::crypto::encryption_key_from_env(
+            "AUTHX_ENCRYPTION_KEY",
+        ) {
+            Ok(key) => Some(key),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "dashboard: AUTHX_ENCRYPTION_KEY missing/invalid; federation secrets cannot be created"
+                );
+                None
+            }
+        };
         Self {
             admin: Arc::new(AdminService::new(storage, events, session_ttl_secs)),
             token: Arc::new(String::new()),
+            encryption_key,
         }
+    }
+
+    /// Explicitly set the encryption key used for OIDC federation secret storage.
+    pub fn with_encryption_key(mut self, key: [u8; 32]) -> Self {
+        self.encryption_key = Some(key);
+        self
     }
 
     /// Build the dashboard [`Router`].

@@ -59,6 +59,15 @@ let state = AuthxState::new(store, session_ttl_secs, secure_cookies);
 
 // With lockout
 let state = AuthxState::new_with_lockout(store, session_ttl_secs, secure_cookies, lockout);
+
+// With lockout + explicit remember-me TTL policy
+let state = AuthxState::new_with_lockout_and_remember_me(
+    store,
+    session_ttl_secs,
+    remember_me_ttl_secs,
+    secure_cookies,
+    Some(lockout),
+);
 ```
 
 ## SessionLayer

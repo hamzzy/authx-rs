@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard
-description: Embedded HTMX-powered admin UI for managing users and sessions.
+description: Embedded HTMX-powered admin UI for managing users, sessions, OIDC clients, and federation providers.
 ---
 
 `authx-dashboard` is a self-contained Axum router that serves an embedded admin dashboard — no separate deployment, no Node.js, no build step.
@@ -11,6 +11,8 @@ description: Embedded HTMX-powered admin UI for managing users and sessions.
 - Ban and unban users (with reason)
 - View and revoke active sessions per user
 - Stat overview (total users, banned, unverified)
+- List/create OIDC clients
+- List/create OIDC federation providers
 - Secured by admin bearer token — token prompt in the browser UI
 
 ## Mounting
@@ -39,6 +41,7 @@ The dashboard is now available at `/_authx/`.
 - All `/api/*` routes require `Authorization: Bearer <admin_token>`
 - The root HTML page is served without authentication so the login form can be displayed
 - Tokens are stored in `sessionStorage` — cleared when the browser tab closes
+- Federation provider `client_secret` is encrypted at rest using `AUTHX_ENCRYPTION_KEY`
 
 ## REST API
 
@@ -53,6 +56,10 @@ The dashboard exposes a JSON API you can call from your own tooling:
 | `DELETE` | `/api/users/:id/ban` | Unban user |
 | `GET` | `/api/users/:id/sessions` | List sessions |
 | `DELETE` | `/api/users/:id/sessions` | Revoke all sessions |
+| `GET` | `/api/oidc/clients` | List OIDC clients |
+| `POST` | `/api/oidc/clients` | Create OIDC client |
+| `GET` | `/api/oidc/federation` | List federation providers |
+| `POST` | `/api/oidc/federation` | Create federation provider |
 
 All routes return JSON and require `Authorization: Bearer <token>`.
 
@@ -64,3 +71,9 @@ Treat the admin token as a high-privilege credential:
 - Store in an environment variable or secret manager
 - Rotate periodically
 - Never commit to source control
+
+For federation provider secret encryption, also set:
+
+```bash
+export AUTHX_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+```

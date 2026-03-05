@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
 
-use authx_core::crypto::sha256_hex;
+use authx_core::crypto::{decode_aes256_key_hex, sha256_hex};
 use authx_core::models::{CreateOidcClient, CreateOidcFederationProvider};
 use authx_storage::{
     memory::MemoryStore,
@@ -99,8 +99,9 @@ pub struct FederationCreateArgs {
     pub scopes: String,
 
     /// 64-hex-character AES-256 key used by your server (same as OIDC federation service).
-    #[arg(long, value_name = "HEX_KEY")]
-    pub enc_key_hex: String,
+    /// Falls back to `AUTHX_ENCRYPTION_KEY` when omitted.
+    #[arg(long, env = "AUTHX_ENCRYPTION_KEY", value_name = "HEX_KEY")]
+    pub enc_key_hex: Option<String>,
 }
 
 // ── Device codes ──────────────────────────────────────────────────────────────
@@ -152,7 +153,7 @@ async fn list_clients(args: ClientListArgs) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<38} {:<32} {}", "ID", "Client ID", "Name");
+    println!("{:<38} {:<32} Name", "ID", "Client ID");
     println!("{}", "-".repeat(90));
     for c in &clients {
         println!("{:<38} {:<32} {}", c.id, c.client_id, c.name);
@@ -221,7 +222,7 @@ async fn list_federation(_args: FederationListArgs) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<38} {:<18} {:<40} {}", "ID", "Name", "Issuer", "Scopes");
+    println!("{:<38} {:<18} {:<40} Scopes", "ID", "Name", "Issuer");
     println!("{}", "-".repeat(110));
     for p in &providers {
         println!("{:<38} {:<18} {:<40} {}", p.id, p.name, p.issuer, p.scopes);
@@ -233,12 +234,11 @@ async fn list_federation(_args: FederationListArgs) -> Result<()> {
 async fn create_federation(args: FederationCreateArgs) -> Result<()> {
     let store = MemoryStore::new();
 
-    let key_bytes = hex::decode(args.enc_key_hex.trim()).context("decode enc_key_hex")?;
-    if key_bytes.len() != 32 {
-        anyhow::bail!("enc_key_hex must decode to 32 bytes (AES-256 key)");
-    }
-    let mut key = [0u8; 32];
-    key.copy_from_slice(&key_bytes);
+    let key_hex = args
+        .enc_key_hex
+        .as_deref()
+        .context("missing encryption key; pass --enc-key-hex or set AUTHX_ENCRYPTION_KEY")?;
+    let key = decode_aes256_key_hex(key_hex).context("invalid encryption key")?;
 
     let secret_enc = authx_core::crypto::encrypt(&key, args.client_secret.as_bytes())
         .context("encrypt client_secret")?;
@@ -277,8 +277,8 @@ async fn list_device_codes(args: DeviceListArgs) -> Result<()> {
     }
 
     println!(
-        "{:<38} {:<12} {:<12} {:<12} {}",
-        "ID", "User Code", "Authorized", "Denied", "Expires At"
+        "{:<38} {:<12} {:<12} {:<12} Expires At",
+        "ID", "User Code", "Authorized", "Denied"
     );
     println!("{}", "-".repeat(100));
     for dc in &codes {

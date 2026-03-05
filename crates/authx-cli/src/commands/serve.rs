@@ -33,6 +33,14 @@ pub struct ServeArgs {
     #[arg(long, env = "AUTHX_SESSION_TTL", default_value_t = 60 * 60 * 24 * 30)]
     session_ttl: u64,
 
+    /// "Remember me" session TTL in seconds.
+    #[arg(
+        long,
+        env = "AUTHX_REMEMBER_ME_TTL",
+        default_value_t = 60 * 60 * 24 * 90
+    )]
+    remember_me_ttl: u64,
+
     /// Require HTTPS-only (Secure) cookies.
     #[arg(long, env = "AUTHX_SECURE_COOKIES", default_value_t = false)]
     secure_cookies: bool,
@@ -56,6 +64,12 @@ fn validate_args(args: &ServeArgs) -> Result<()> {
     }
     if args.session_ttl == 0 {
         anyhow::bail!("AUTHX_SESSION_TTL must be greater than zero");
+    }
+    if args.remember_me_ttl == 0 {
+        anyhow::bail!("AUTHX_REMEMBER_ME_TTL must be greater than zero");
+    }
+    if args.remember_me_ttl < args.session_ttl {
+        anyhow::bail!("AUTHX_REMEMBER_ME_TTL must be >= AUTHX_SESSION_TTL");
     }
     if args.rate_limit == 0 {
         anyhow::bail!("AUTHX_RATE_LIMIT must be greater than zero");
@@ -81,6 +95,7 @@ pub async fn run(args: ServeArgs) -> Result<()> {
     tracing::debug!(
         bind = %args.bind,
         session_ttl = args.session_ttl,
+        remember_me_ttl = args.remember_me_ttl,
         rate_limit = args.rate_limit,
         lockout_failures = args.lockout_failures,
         lockout_minutes = args.lockout_minutes,
@@ -97,6 +112,10 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         args.lockout_failures,
         Duration::from_secs(args.lockout_minutes * 60),
     );
+    let session_policy = SessionPolicy {
+        session_ttl: args.session_ttl,
+        remember_me_ttl: args.remember_me_ttl,
+    };
 
     if let Some(ref url) = args.database_url {
         tracing::info!("connecting to postgres at {url}");
@@ -108,7 +127,7 @@ pub async fn run(args: ServeArgs) -> Result<()> {
             store.clone(),
             store,
             &origins,
-            args.session_ttl,
+            session_policy,
             args.secure_cookies,
             lockout,
             args.rate_limit,
@@ -122,7 +141,7 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         store.clone(),
         store,
         &origins,
-        args.session_ttl,
+        session_policy,
         args.secure_cookies,
         lockout,
         args.rate_limit,
@@ -130,11 +149,17 @@ pub async fn run(args: ServeArgs) -> Result<()> {
     listen(app, &args.bind).await
 }
 
+#[derive(Clone, Copy)]
+struct SessionPolicy {
+    session_ttl: u64,
+    remember_me_ttl: u64,
+}
+
 fn make_app<S>(
     session_store: S,
     auth_store: S,
     origins: &[String],
-    session_ttl: u64,
+    session_policy: SessionPolicy,
     secure: bool,
     lockout: LockoutConfig,
     rate_limit: u32,
@@ -146,7 +171,13 @@ where
 
     let csrf = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
     let rl_layer = RateLimitLayer::new(RateLimitConfig::new(rate_limit, Duration::from_secs(60)));
-    let state = AuthxState::new_with_lockout(auth_store, session_ttl as i64, secure, lockout);
+    let state = AuthxState::new_with_lockout_and_remember_me(
+        auth_store,
+        session_policy.session_ttl as i64,
+        session_policy.remember_me_ttl as i64,
+        secure,
+        Some(lockout),
+    );
 
     let auth_router = state
         .router()

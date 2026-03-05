@@ -71,3 +71,9 @@ org_svc.switch_org(session_id, target_org_id, user_id).await?;
 ```
 
 The next request after the session update sees the new `identity.active_org`.
+
+## Strategy choice
+
+For when to use sessions vs OAuth/OIDC token-based auth, see:
+
+- [Session vs Token Strategy](/concepts/session-vs-token-strategy/)

@@ -87,6 +87,7 @@ async fn sign_in_returns_token_and_session() {
             email: "bob@example.com".into(),
             password: "Correct-Horse1!".into(),
             ip: "10.0.0.2".into(),
+            remember_me: false,
         })
         .await
         .expect("sign_in failed");
@@ -94,6 +95,42 @@ async fn sign_in_returns_token_and_session() {
     assert_eq!(resp.user.email, "bob@example.com");
     assert!(!resp.token.is_empty());
     assert_eq!(resp.session.user_id, resp.user.id);
+}
+
+#[tokio::test]
+async fn remember_me_uses_longer_session_ttl() {
+    let svc = EmailPasswordService::new(MemoryStore::new(), EventBus::new(), 8, 3600)
+        .with_remember_me_ttl(86_400);
+    svc.sign_up(SignUpRequest {
+        email: "remember@example.com".into(),
+        password: "Correct-Horse1!".into(),
+        ip: "127.0.0.1".into(),
+    })
+    .await
+    .unwrap();
+
+    let normal = svc
+        .sign_in(SignInRequest {
+            email: "remember@example.com".into(),
+            password: "Correct-Horse1!".into(),
+            ip: "127.0.0.1".into(),
+            remember_me: false,
+        })
+        .await
+        .unwrap();
+    let remembered = svc
+        .sign_in(SignInRequest {
+            email: "remember@example.com".into(),
+            password: "Correct-Horse1!".into(),
+            ip: "127.0.0.1".into(),
+            remember_me: true,
+        })
+        .await
+        .unwrap();
+
+    assert!(remembered.session.expires_at > normal.session.expires_at);
+    assert_eq!(normal.session_ttl_secs, 3600);
+    assert_eq!(remembered.session_ttl_secs, 86_400);
 }
 
 #[tokio::test]
@@ -112,6 +149,7 @@ async fn sign_in_rejects_wrong_password() {
             email: "carol@example.com".into(),
             password: "wrong-password".into(),
             ip: "127.0.0.1".into(),
+            remember_me: false,
         })
         .await
         .expect_err("expected auth failure");
@@ -127,6 +165,7 @@ async fn sign_in_rejects_unknown_email() {
             email: "nobody@example.com".into(),
             password: "anything".into(),
             ip: "127.0.0.1".into(),
+            remember_me: false,
         })
         .await
         .expect_err("expected not found");
@@ -150,6 +189,7 @@ async fn sign_out_invalidates_session() {
             email: "dave@example.com".into(),
             password: "Passw0rd!".into(),
             ip: "127.0.0.1".into(),
+            remember_me: false,
         })
         .await
         .unwrap();
@@ -181,6 +221,7 @@ async fn sign_out_all_clears_every_session() {
             email: "eve@example.com".into(),
             password: "Passw0rd!".into(),
             ip: "1.1.1.1".into(),
+            remember_me: false,
         })
         .await
         .unwrap();
@@ -190,6 +231,7 @@ async fn sign_out_all_clears_every_session() {
             email: "eve@example.com".into(),
             password: "Passw0rd!".into(),
             ip: "2.2.2.2".into(),
+            remember_me: false,
         })
         .await
         .unwrap();
@@ -223,6 +265,7 @@ async fn list_sessions_returns_all_active() {
                 email: "frank@example.com".into(),
                 password: "Passw0rd!".into(),
                 ip: ip.into(),
+                remember_me: false,
             })
             .await
             .unwrap()
@@ -264,6 +307,7 @@ async fn lockout_triggers_after_max_failures() {
         email: "grace@example.com".into(),
         password: "wrong".into(),
         ip: "127.0.0.1".into(),
+        remember_me: false,
     };
 
     // Three failures should trigger lockout.
@@ -297,6 +341,7 @@ async fn lockout_clears_on_success() {
                 email: "henry@example.com".into(),
                 password: "wrong".into(),
                 ip: "127.0.0.1".into(),
+                remember_me: false,
             })
             .await;
     }
@@ -306,6 +351,7 @@ async fn lockout_clears_on_success() {
         email: "henry@example.com".into(),
         password: "Correct-Pass1!".into(),
         ip: "127.0.0.1".into(),
+        remember_me: false,
     })
     .await
     .expect("sign-in should succeed after counter reset");
@@ -317,6 +363,7 @@ async fn lockout_clears_on_success() {
                 email: "henry@example.com".into(),
                 password: "wrong".into(),
                 ip: "127.0.0.1".into(),
+                remember_me: false,
             })
             .await;
     }
@@ -327,6 +374,7 @@ async fn lockout_clears_on_success() {
             email: "henry@example.com".into(),
             password: "Correct-Pass1!".into(),
             ip: "127.0.0.1".into(),
+            remember_me: false,
         })
         .await;
     assert!(result.is_ok(), "should not be locked: {result:?}");
@@ -352,6 +400,7 @@ async fn no_lockout_without_config() {
                 email: "ivan@example.com".into(),
                 password: "wrong".into(),
                 ip: "127.0.0.1".into(),
+                remember_me: false,
             })
             .await
             .expect_err("expected error");

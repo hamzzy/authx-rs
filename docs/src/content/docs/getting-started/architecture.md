@@ -98,3 +98,8 @@ self.events.emit(AuthEvent::SignIn { user: user.clone(), session: session.clone(
 ```
 
 The bus is cloneable and cheaply shareable. Missing events on a lagged subscriber is logged as a warning — it never panics.
+
+## Next reads
+
+- [OIDC Provider and Federation](/concepts/oidc/)
+- [Session vs Token Strategy](/concepts/session-vs-token-strategy/)

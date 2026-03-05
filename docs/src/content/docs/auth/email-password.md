@@ -45,6 +45,16 @@ resp.session  // Session model with id, expires_at, ip_address, …
 resp.user     // User model
 ```
 
+### Remember me
+
+When using `AuthxState` HTTP handlers, clients can send:
+
+```json
+{ "email": "alice@example.com", "password": "securepassword123", "remember_me": true }
+```
+
+The server applies the configured remember-me TTL policy for that session.
+
 After `max_failures` wrong passwords within the lockout window, the account is locked and further attempts return `Err(AuthError::AccountLocked)`.
 
 ## Sign out

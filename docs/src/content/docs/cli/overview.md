@@ -27,6 +27,7 @@ Options:
   --database-url <DATABASE_URL>   Postgres URL [env: DATABASE_URL]
   --trusted-origins <ORIGINS>     Comma-separated CSRF origins [env: AUTHX_TRUSTED_ORIGINS]
   --session-ttl <SECS>            Session TTL seconds [default: 2592000]
+  --remember-me-ttl <SECS>        Remember-me TTL seconds [default: 7776000]
   --secure-cookies                Enable Secure cookie flag
   --rate-limit <N>                Requests/IP/minute [default: 30]
   --lockout-failures <N>          Failures before lockout [default: 5]
@@ -102,3 +103,9 @@ authx key revoke <user-uuid> <key-uuid>
 ## Environment variables
 
 All `--flag` options have `env:` equivalents — see `authx serve --help` for the full list. A `.env` file is supported if you load it before invoking the binary (e.g. via `dotenv`).
+
+For OIDC federation provider creation/encryption flows, set:
+
+```bash
+export AUTHX_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+```

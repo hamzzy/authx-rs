@@ -9,13 +9,16 @@ description: Built-in Axum route handlers mounted by AuthxState::router().
 
 | Method | Path | Body / Params | Response |
 |---|---|---|---|
-| `POST` | `/sign-up` | `{ "email", "password" }` | `{ "token", "user", "session" }` |
-| `POST` | `/sign-in` | `{ "email", "password" }` | `{ "token", "user", "session" }` |
+| `POST` | `/sign-up` | `{ "email", "password" }` | `{ "user_id", "email" }` |
+| `POST` | `/sign-up/flow` | `{ "email", "password", "setup_mfa?" }` | `{ "user_id", "email", "email_verification_token", "totp_setup?" }` |
+| `POST` | `/sign-in` | `{ "email", "password", "remember_me?" }` | `{ "user_id", "session_id", "token" }` |
 | `POST` | `/sign-out` | — (session cookie) | `204 No Content` |
 | `POST` | `/sign-out/all` | — (session cookie) | `204 No Content` |
 | `GET`  | `/session` | — (session cookie) | `{ "user", "session" }` |
 | `GET`  | `/sessions` | — (session cookie) | `[ Session, … ]` |
 | `DELETE` | `/sessions/:id` | — (session cookie) | `204 No Content` |
+
+`remember_me=true` uses a longer configured TTL policy (`AUTHX_REMEMBER_ME_TTL` in CLI serve mode).
 
 ## Error responses
 

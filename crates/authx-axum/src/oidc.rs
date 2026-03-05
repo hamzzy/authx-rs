@@ -109,6 +109,20 @@ where
             authx_core::error::AuthError::Internal("response_type must be code".into()),
         ));
     }
+    if query.code_challenge.is_some() && query.code_challenge_method.as_deref() != Some("S256") {
+        return Err(AuthErrorResponse::from(
+            authx_core::error::AuthError::Internal(
+                "code_challenge_method must be S256 when code_challenge is present".into(),
+            ),
+        ));
+    }
+    if query.code_challenge.is_none() && query.code_challenge_method.is_some() {
+        return Err(AuthErrorResponse::from(
+            authx_core::error::AuthError::Internal(
+                "code_challenge_method is only allowed with code_challenge".into(),
+            ),
+        ));
+    }
     let scope = query.scope.unwrap_or_else(|| "openid".into());
     let (_, redirect_url) = state
         .service

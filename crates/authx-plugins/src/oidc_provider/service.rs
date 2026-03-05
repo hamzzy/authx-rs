@@ -131,6 +131,19 @@ where
         if !client.response_types.contains(&"code".to_string()) {
             return Err(AuthError::Internal("response_type code not allowed".into()));
         }
+        let is_public_client = client.secret_hash.is_empty();
+        if is_public_client && code_challenge.is_none() {
+            return Err(AuthError::Internal(
+                "pkce code_challenge is required for public clients".into(),
+            ));
+        }
+        if let Some(challenge) = code_challenge {
+            if challenge.trim().is_empty() {
+                return Err(AuthError::Internal(
+                    "pkce code_challenge cannot be empty".into(),
+                ));
+            }
+        }
 
         let allowed: std::collections::HashSet<_> =
             client.allowed_scopes.split_whitespace().collect();
@@ -206,7 +219,9 @@ where
             {
                 return Err(AuthError::InvalidToken);
             }
-        } else if let Some(challenge) = &auth_code.code_challenge {
+        }
+
+        if let Some(challenge) = &auth_code.code_challenge {
             let verifier = code_verifier.ok_or(AuthError::InvalidToken)?;
             let mut hasher = Sha256::new();
             hasher.update(verifier.as_bytes());
@@ -214,6 +229,9 @@ where
             if computed != *challenge {
                 return Err(AuthError::InvalidToken);
             }
+        } else if client.secret_hash.is_empty() {
+            // Public clients must always be protected by PKCE.
+            return Err(AuthError::InvalidToken);
         }
 
         AuthorizationCodeRepository::mark_used(&self.storage, auth_code.id).await?;
@@ -538,4 +556,116 @@ fn generate_user_code() -> String {
         })
         .collect();
     format!("{}-{}", &code[..4], &code[4..])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use authx_core::models::{CreateOidcClient, CreateUser};
+    use authx_storage::{memory::MemoryStore, ports::OidcClientRepository};
+
+    fn make_service() -> OidcProviderService<MemoryStore> {
+        let cfg = OidcProviderConfig {
+            issuer: "https://authx.local".to_string(),
+            key_store: KeyRotationStore::new(2),
+            access_token_ttl_secs: 900,
+            id_token_ttl_secs: 900,
+            refresh_token_ttl_secs: 86_400,
+            auth_code_ttl_secs: 120,
+            device_code_ttl_secs: 600,
+            device_code_interval_secs: 5,
+            verification_uri: "https://authx.local/device".to_string(),
+        };
+        OidcProviderService::new(MemoryStore::new(), cfg)
+    }
+
+    #[tokio::test]
+    async fn public_client_requires_pkce_challenge() {
+        let svc = make_service();
+        let user = UserRepository::create(
+            &svc.storage,
+            CreateUser {
+                email: "pkce-public@example.com".into(),
+                username: None,
+                metadata: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let client = OidcClientRepository::create(
+            &svc.storage,
+            CreateOidcClient {
+                name: "spa-client".into(),
+                redirect_uris: vec!["https://spa.example/callback".into()],
+                grant_types: vec!["authorization_code".into(), "refresh_token".into()],
+                response_types: vec!["code".into()],
+                allowed_scopes: "openid profile email".into(),
+                secret_hash: String::new(),
+            },
+        )
+        .await
+        .unwrap();
+
+        let err = svc
+            .create_authorization_code(CreateAuthorizationCodeRequest {
+                user_id: user.id,
+                client_id: &client.client_id,
+                redirect_uri: "https://spa.example/callback",
+                scope: "openid profile email",
+                state: None,
+                nonce: None,
+                code_challenge: None,
+            })
+            .await
+            .expect_err("public clients without PKCE must fail");
+        assert!(
+            matches!(err, AuthError::Internal(ref msg) if msg.contains("pkce")),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn confidential_client_can_skip_pkce_challenge() {
+        let svc = make_service();
+        let user = UserRepository::create(
+            &svc.storage,
+            CreateUser {
+                email: "pkce-confidential@example.com".into(),
+                username: None,
+                metadata: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let client = OidcClientRepository::create(
+            &svc.storage,
+            CreateOidcClient {
+                name: "web-client".into(),
+                redirect_uris: vec!["https://web.example/callback".into()],
+                grant_types: vec!["authorization_code".into(), "refresh_token".into()],
+                response_types: vec!["code".into()],
+                allowed_scopes: "openid profile email".into(),
+                secret_hash: sha256_hex(b"top-secret"),
+            },
+        )
+        .await
+        .unwrap();
+
+        let res = svc
+            .create_authorization_code(CreateAuthorizationCodeRequest {
+                user_id: user.id,
+                client_id: &client.client_id,
+                redirect_uri: "https://web.example/callback",
+                scope: "openid profile email",
+                state: Some("state-1"),
+                nonce: None,
+                code_challenge: None,
+            })
+            .await;
+
+        assert!(res.is_ok(), "confidential clients may skip PKCE");
+    }
 }

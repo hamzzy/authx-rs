@@ -12,6 +12,7 @@ pub mod oidc_provider;
 pub mod one_time_token;
 pub mod organization;
 pub mod password_reset;
+pub mod signup_flow;
 pub mod totp;
 pub mod username;
 
@@ -32,6 +33,7 @@ pub use oidc_provider::{
 pub use one_time_token::OneTimeTokenStore;
 pub use organization::{InviteDetails, OrgService};
 pub use password_reset::PasswordResetService;
+pub use signup_flow::{SignupFlowRequest, SignupFlowResponse, SignupFlowService};
 pub use totp::{TotpService, TotpSetup};
 pub use username::{UsernameAuthResponse, UsernameService};
 

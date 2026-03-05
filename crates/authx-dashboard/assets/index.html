@@ -387,6 +387,55 @@
   </div>
 </div>
 
+<!-- Create OIDC client modal -->
+<div id="create-client-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Create OIDC Client</h3>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-client-name" type="text" placeholder="Client name">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-client-redirects" type="text" placeholder="Redirect URIs (comma-separated)">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-client-scopes" type="text" placeholder="Scopes (default: openid profile email)">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-client-secret" type="text" placeholder="Client secret (optional; empty = public client)">
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="hideCreateClient()">Cancel</button>
+      <button class="btn btn-primary" onclick="createOidcClient()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create OIDC federation provider modal -->
+<div id="create-federation-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Create Federation Provider</h3>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-fed-name" type="text" placeholder="Provider name (e.g. okta-acme)">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-fed-issuer" type="text" placeholder="Issuer URL (e.g. https://acme.okta.com)">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-fed-client-id" type="text" placeholder="Client ID">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-fed-client-secret" type="text" placeholder="Client secret">
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem">
+      <input id="new-fed-scopes" type="text" placeholder="Scopes (default: openid profile email)">
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="hideCreateFederation()">Cancel</button>
+      <button class="btn btn-primary" onclick="createOidcFederation()">Create</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Auth ──────────────────────────────────────────────────────────────────────
 let TOKEN = sessionStorage.getItem('authx_admin_token') || '';
@@ -622,6 +671,39 @@ async function loadOidcClients() {
   }).join('');
 }
 
+function showCreateClient() {
+  document.getElementById('new-client-name').value = '';
+  document.getElementById('new-client-redirects').value = '';
+  document.getElementById('new-client-scopes').value = 'openid profile email';
+  document.getElementById('new-client-secret').value = '';
+  document.getElementById('create-client-modal').classList.remove('hidden');
+}
+
+function hideCreateClient() {
+  document.getElementById('create-client-modal').classList.add('hidden');
+}
+
+async function createOidcClient() {
+  const name = document.getElementById('new-client-name').value.trim();
+  const redirect_uris = document.getElementById('new-client-redirects').value.trim();
+  const scopes = document.getElementById('new-client-scopes').value.trim() || 'openid profile email';
+  const client_secret = document.getElementById('new-client-secret').value.trim();
+  if (!name || !redirect_uris) {
+    toast('Name and redirect URIs are required', false);
+    return;
+  }
+  const payload = { name, redirect_uris, scopes };
+  if (client_secret) payload.client_secret = client_secret;
+  const client = await api('POST', '/oidc/clients', payload);
+  if (!client) {
+    toast('Failed to create OIDC client', false);
+    return;
+  }
+  hideCreateClient();
+  toast(`OIDC client ${client.name} created`);
+  loadOidcClients();
+}
+
 // ── OIDC Federation ───────────────────────────────────────────────────────────
 async function loadOidcFederation() {
   const providers = await api('GET', '/oidc/federation');
@@ -636,6 +718,45 @@ async function loadOidcFederation() {
     <td style="font-family:monospace; font-size:.78rem">${esc(p.client_id)}</td>
     <td>${esc(p.scopes)}</td>
   </tr>`).join('');
+}
+
+function showCreateFederation() {
+  document.getElementById('new-fed-name').value = '';
+  document.getElementById('new-fed-issuer').value = '';
+  document.getElementById('new-fed-client-id').value = '';
+  document.getElementById('new-fed-client-secret').value = '';
+  document.getElementById('new-fed-scopes').value = 'openid profile email';
+  document.getElementById('create-federation-modal').classList.remove('hidden');
+}
+
+function hideCreateFederation() {
+  document.getElementById('create-federation-modal').classList.add('hidden');
+}
+
+async function createOidcFederation() {
+  const name = document.getElementById('new-fed-name').value.trim();
+  const issuer = document.getElementById('new-fed-issuer').value.trim();
+  const client_id = document.getElementById('new-fed-client-id').value.trim();
+  const client_secret = document.getElementById('new-fed-client-secret').value.trim();
+  const scopes = document.getElementById('new-fed-scopes').value.trim() || 'openid profile email';
+  if (!name || !issuer || !client_id || !client_secret) {
+    toast('Name, issuer, client_id, and client_secret are required', false);
+    return;
+  }
+  const provider = await api('POST', '/oidc/federation', {
+    name,
+    issuer,
+    client_id,
+    client_secret,
+    scopes,
+  });
+  if (!provider) {
+    toast('Failed to create federation provider', false);
+    return;
+  }
+  hideCreateFederation();
+  toast(`Federation provider ${provider.name} created`);
+  loadOidcFederation();
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ pub struct SignInRequest {
     pub email: String,
     pub password: String,
     pub ip: String,
+    pub remember_me: bool,
 }
 
 #[derive(Debug)]
@@ -32,6 +33,8 @@ pub struct AuthResponse {
     /// Raw opaque token returned to the client once. The SHA-256 hash is
     /// stored in the database — never the raw value.
     pub token: String,
+    /// Session TTL selected for this sign-in request.
+    pub session_ttl_secs: i64,
 }
 
 pub struct EmailPasswordService<S> {
@@ -39,6 +42,7 @@ pub struct EmailPasswordService<S> {
     events: EventBus,
     min_password_len: usize,
     session_ttl_secs: i64,
+    remember_me_ttl_secs: Option<i64>,
     lockout: Option<LoginAttemptTracker>,
 }
 
@@ -57,6 +61,7 @@ where
             events,
             min_password_len,
             session_ttl_secs,
+            remember_me_ttl_secs: None,
             lockout: None,
         }
     }
@@ -64,6 +69,12 @@ where
     /// Enable brute-force lockout with the given configuration.
     pub fn with_lockout(mut self, cfg: LockoutConfig) -> Self {
         self.lockout = Some(LoginAttemptTracker::new(cfg));
+        self
+    }
+
+    /// Configure a longer session lifetime used when `remember_me = true`.
+    pub fn with_remember_me_ttl(mut self, ttl_secs: i64) -> Self {
+        self.remember_me_ttl_secs = Some(ttl_secs.max(1));
         self
     }
 
@@ -141,6 +152,11 @@ where
 
         let raw_token = generate_token();
         let token_hash = sha256_hex(raw_token.as_bytes());
+        let session_ttl_secs = if req.remember_me {
+            self.remember_me_ttl_secs.unwrap_or(self.session_ttl_secs)
+        } else {
+            self.session_ttl_secs
+        };
 
         let session = SessionRepository::create(
             &self.storage,
@@ -150,7 +166,7 @@ where
                 device_info: serde_json::Value::Null,
                 ip_address: req.ip,
                 org_id: None,
-                expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
+                expires_at: Utc::now() + chrono::Duration::seconds(session_ttl_secs),
             },
         )
         .await?;
@@ -165,6 +181,7 @@ where
             user,
             session,
             token: raw_token,
+            session_ttl_secs,
         })
     }
 

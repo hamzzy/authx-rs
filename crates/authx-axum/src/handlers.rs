@@ -12,7 +12,10 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use authx_core::{brute_force::LockoutConfig, error::AuthError, models::Session};
-use authx_plugins::email_password::{EmailPasswordService, SignInRequest, SignUpRequest};
+use authx_plugins::{
+    email_password::{EmailPasswordService, SignInRequest, SignUpRequest},
+    signup_flow::{SignupFlowRequest, SignupFlowService},
+};
 use authx_storage::ports::{CredentialRepository, SessionRepository, UserRepository};
 
 use crate::{
@@ -25,7 +28,9 @@ use crate::{
 #[derive(Clone)]
 pub struct AuthxState<S> {
     pub service: Arc<EmailPasswordService<S>>,
+    pub signup_flow: Arc<SignupFlowService<S>>,
     pub session_ttl_secs: i64,
+    pub remember_me_ttl_secs: i64,
     pub secure_cookies: bool,
 }
 
@@ -34,17 +39,44 @@ where
     S: UserRepository + SessionRepository + CredentialRepository + Clone + Send + Sync + 'static,
 {
     pub fn new(storage: S, session_ttl_secs: i64, secure_cookies: bool) -> Self {
+        let default_remember_me_ttl_secs = session_ttl_secs.saturating_mul(3);
+        Self::new_with_lockout_and_remember_me(
+            storage,
+            session_ttl_secs,
+            default_remember_me_ttl_secs,
+            secure_cookies,
+            None,
+        )
+    }
+
+    pub fn new_with_lockout_and_remember_me(
+        storage: S,
+        session_ttl_secs: i64,
+        remember_me_ttl_secs: i64,
+        secure_cookies: bool,
+        lockout: Option<LockoutConfig>,
+    ) -> Self {
         use authx_core::events::EventBus;
         let events = EventBus::new();
-        let service = Arc::new(EmailPasswordService::new(
-            storage,
+        let signup_storage = storage.clone();
+        let mut service = EmailPasswordService::new(storage, events.clone(), 8, session_ttl_secs)
+            .with_remember_me_ttl(remember_me_ttl_secs);
+        if let Some(cfg) = lockout {
+            service = service.with_lockout(cfg);
+        }
+        let service = Arc::new(service);
+        let signup_flow = Arc::new(SignupFlowService::new(
+            signup_storage,
             events,
             8,
             session_ttl_secs,
+            "authx",
         ));
         Self {
             service,
+            signup_flow,
             session_ttl_secs,
+            remember_me_ttl_secs,
             secure_cookies,
         }
     }
@@ -56,22 +88,21 @@ where
         secure_cookies: bool,
         lockout: LockoutConfig,
     ) -> Self {
-        use authx_core::events::EventBus;
-        let events = EventBus::new();
-        let service = Arc::new(
-            EmailPasswordService::new(storage, events, 8, session_ttl_secs).with_lockout(lockout),
-        );
-        Self {
-            service,
+        let default_remember_me_ttl_secs = session_ttl_secs.saturating_mul(3);
+        Self::new_with_lockout_and_remember_me(
+            storage,
             session_ttl_secs,
+            default_remember_me_ttl_secs,
             secure_cookies,
-        }
+            Some(lockout),
+        )
     }
 
     /// Build the auth router — nest this under `/auth` in your application.
     pub fn router(self) -> Router {
         Router::new()
             .route("/sign-up", post(sign_up::<S>))
+            .route("/sign-up/flow", post(sign_up_flow::<S>))
             .route("/sign-in", post(sign_in::<S>))
             .route("/sign-out", post(sign_out::<S>))
             .route("/sign-out/all", post(sign_out_all::<S>))
@@ -100,6 +131,8 @@ struct SignUpResponse {
 struct SignInBody {
     email: String,
     password: String,
+    #[serde(default)]
+    remember_me: bool,
 }
 
 #[derive(Serialize)]
@@ -108,6 +141,30 @@ struct SignInResponse {
     session_id: Uuid,
     /// Raw opaque token — store this client-side or read from cookie.
     token: String,
+}
+
+#[derive(Deserialize)]
+struct SignUpFlowBody {
+    email: String,
+    password: String,
+    #[serde(default)]
+    setup_mfa: bool,
+}
+
+#[derive(Serialize)]
+struct SignUpFlowResponse {
+    user_id: Uuid,
+    email: String,
+    email_verification_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    totp_setup: Option<TotpSetupView>,
+}
+
+#[derive(Serialize)]
+struct TotpSetupView {
+    secret_base32: String,
+    otpauth_uri: String,
+    backup_codes: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -166,6 +223,40 @@ where
 }
 
 #[instrument(skip(state, body))]
+async fn sign_up_flow<S>(
+    State(state): State<AuthxState<S>>,
+    Json(body): Json<SignUpFlowBody>,
+) -> Result<impl IntoResponse, AuthErrorResponse>
+where
+    S: UserRepository + SessionRepository + CredentialRepository + Clone + Send + Sync + 'static,
+{
+    let flow = state
+        .signup_flow
+        .sign_up(SignupFlowRequest {
+            email: body.email,
+            password: body.password,
+            ip: String::new(),
+            setup_mfa: body.setup_mfa,
+        })
+        .await
+        .map_err(AuthErrorResponse::from)?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(SignUpFlowResponse {
+            user_id: flow.user.id,
+            email: flow.user.email,
+            email_verification_token: flow.email_verification_token,
+            totp_setup: flow.totp_setup.map(|setup| TotpSetupView {
+                secret_base32: setup.secret_base32,
+                otpauth_uri: setup.otpauth_uri,
+                backup_codes: setup.backup_codes,
+            }),
+        }),
+    ))
+}
+
+#[instrument(skip(state, body))]
 async fn sign_in<S>(
     State(state): State<AuthxState<S>>,
     Json(body): Json<SignInBody>,
@@ -179,11 +270,12 @@ where
             email: body.email,
             password: body.password,
             ip: String::new(),
+            remember_me: body.remember_me,
         })
         .await
         .map_err(AuthErrorResponse::from)?;
 
-    let cookie = set_session_cookie(&resp.token, state.session_ttl_secs, state.secure_cookies);
+    let cookie = set_session_cookie(&resp.token, resp.session_ttl_secs, state.secure_cookies);
 
     tracing::info!(user_id = %resp.user.id, "sign-in complete");
 
