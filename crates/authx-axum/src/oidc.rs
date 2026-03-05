@@ -19,8 +19,8 @@ use tracing::instrument;
 use authx_plugins::{
     oidc_federation::OidcFederationService,
     oidc_provider::{
-        jwks_from_public_pem, oidc_discovery_document, DeviceAuthorizationResponse,
-        DeviceCodeError, OidcProviderConfig, OidcProviderService,
+        jwks_from_public_pem, oidc_discovery_document, CreateAuthorizationCodeRequest,
+        DeviceAuthorizationResponse, DeviceCodeError, OidcProviderConfig, OidcProviderService,
     },
 };
 
@@ -112,15 +112,15 @@ where
     let scope = query.scope.unwrap_or_else(|| "openid".into());
     let (_, redirect_url) = state
         .service
-        .create_authorization_code(
-            identity.user.id,
-            &query.client_id,
-            &query.redirect_uri,
-            &scope,
-            query.state.as_deref(),
-            query.nonce.as_deref(),
-            query.code_challenge.as_deref(),
-        )
+        .create_authorization_code(CreateAuthorizationCodeRequest {
+            user_id: identity.user.id,
+            client_id: &query.client_id,
+            redirect_uri: &query.redirect_uri,
+            scope: &scope,
+            state: query.state.as_deref(),
+            nonce: query.nonce.as_deref(),
+            code_challenge: query.code_challenge.as_deref(),
+        })
         .await
         .map_err(AuthErrorResponse::from)?;
     Ok((StatusCode::FOUND, [(header::LOCATION, redirect_url)]))
@@ -246,10 +246,9 @@ where
                         "slow_down",
                         "Polling too frequently. Increase interval by 5 seconds.",
                     ),
-                    DeviceCodeError::ExpiredToken => (
-                        "expired_token",
-                        "The device code has expired.",
-                    ),
+                    DeviceCodeError::ExpiredToken => {
+                        ("expired_token", "The device code has expired.")
+                    }
                     DeviceCodeError::AccessDenied => (
                         "access_denied",
                         "The user denied the authorization request.",

@@ -5,6 +5,6 @@ mod service;
 pub use discovery::oidc_discovery_document;
 pub use jwks::jwks_from_public_pem;
 pub use service::{
-    DeviceAuthorizationResponse, DeviceCodeError, OidcProviderConfig, OidcProviderService,
-    OidcTokenResponse,
+    CreateAuthorizationCodeRequest, DeviceAuthorizationResponse, DeviceCodeError,
+    OidcProviderConfig, OidcProviderService, OidcTokenResponse,
 };

@@ -71,6 +71,18 @@ pub enum DeviceCodeError {
     AccessDenied,
 }
 
+/// Input for creating an authorization code.
+#[derive(Debug, Clone, Copy)]
+pub struct CreateAuthorizationCodeRequest<'a> {
+    pub user_id: Uuid,
+    pub client_id: &'a str,
+    pub redirect_uri: &'a str,
+    pub scope: &'a str,
+    pub state: Option<&'a str>,
+    pub nonce: Option<&'a str>,
+    pub code_challenge: Option<&'a str>,
+}
+
 /// OIDC Provider service — authx as IdP.
 pub struct OidcProviderService<S> {
     storage: S,
@@ -97,14 +109,18 @@ where
     #[instrument(skip(self))]
     pub async fn create_authorization_code(
         &self,
-        user_id: Uuid,
-        client_id: &str,
-        redirect_uri: &str,
-        scope: &str,
-        state: Option<&str>,
-        nonce: Option<&str>,
-        code_challenge: Option<&str>,
+        request: CreateAuthorizationCodeRequest<'_>,
     ) -> Result<(String, String)> {
+        let CreateAuthorizationCodeRequest {
+            user_id,
+            client_id,
+            redirect_uri,
+            scope,
+            state,
+            nonce,
+            code_challenge,
+        } = request;
+
         let client = OidcClientRepository::find_by_client_id(&self.storage, client_id)
             .await?
             .ok_or(AuthError::Internal("invalid client_id".into()))?;

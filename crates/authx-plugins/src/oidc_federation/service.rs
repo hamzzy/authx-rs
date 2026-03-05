@@ -178,9 +178,7 @@ where
                 .pending
                 .write()
                 .map_err(|e| AuthError::Internal(format!("lock poisoned: {e}")))?;
-            let entry = pending
-                .remove(state)
-                .ok_or(AuthError::InvalidToken)?;
+            let entry = pending.remove(state).ok_or(AuthError::InvalidToken)?;
             if entry.expires_at < Instant::now() {
                 return Err(AuthError::InvalidToken);
             }
@@ -260,10 +258,14 @@ where
             .await
             .map_err(|e| AuthError::Internal(format!("userinfo parse: {e}")))?;
 
-        let username = userinfo.preferred_username.clone();
+        let username = userinfo
+            .preferred_username
+            .clone()
+            .or_else(|| userinfo.name.clone());
         let email = userinfo
             .email
-            .or(userinfo.preferred_username)
+            .filter(|_| userinfo.email_verified.unwrap_or(true))
+            .or_else(|| userinfo.preferred_username.clone())
             .unwrap_or_else(|| format!("{}@{}", userinfo.sub, provider_name));
 
         let user = match UserRepository::find_by_email(&self.storage, &email).await? {
