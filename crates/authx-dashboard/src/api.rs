@@ -8,6 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use authx_core::events::AuthEvent;
 use authx_storage::ports::{
     AuditLogRepository, DeviceCodeRepository, OidcClientRepository,
     OidcFederationProviderRepository, OrgRepository, SessionRepository, UserRepository,
@@ -109,6 +110,10 @@ where
         .route("/oidc/clients", post(create_oidc_client::<S>))
         .route("/oidc/federation", get(list_oidc_federation::<S>))
         .route("/oidc/federation", post(create_oidc_federation::<S>))
+        .route(
+            "/oidc/federation/test-connection",
+            post(test_federation_connection::<S>),
+        )
         // Device codes
         .route("/oidc/device-codes", get(list_device_codes::<S>))
 }
@@ -379,7 +384,14 @@ where
     )
     .await
     {
-        Ok(client) => (StatusCode::CREATED, Json(client)).into_response(),
+        Ok(client) => {
+            state.admin.events().emit(AuthEvent::OidcClientCreated {
+                client_id: client.client_id.clone(),
+                name: client.name.clone(),
+                actor_id: None,
+            });
+            (StatusCode::CREATED, Json(client)).into_response()
+        }
         Err(e) => {
             tracing::error!(error = %e, "dashboard: create_oidc_client failed");
             server_error().into_response()
@@ -449,15 +461,124 @@ where
             client_id: body.client_id.clone(),
             secret_enc,
             scopes: body.scopes.clone(),
+            org_id: None,
+            claim_mapping: vec![],
         },
     )
     .await
     {
-        Ok(provider) => (StatusCode::CREATED, Json(provider)).into_response(),
+        Ok(provider) => {
+            state.admin.events().emit(AuthEvent::OidcFederationProviderCreated {
+                provider_id: provider.id,
+                name: provider.name.clone(),
+                actor_id: None,
+            });
+            (StatusCode::CREATED, Json(provider)).into_response()
+        }
         Err(e) => {
             tracing::error!(error = %e, "dashboard: create_oidc_federation failed");
             server_error().into_response()
         }
+    }
+}
+
+// ── Federation Test Connection ────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub(crate) struct TestConnectionBody {
+    issuer: String,
+}
+
+#[derive(Serialize)]
+struct TestConnectionResult {
+    ok: bool,
+    authorization_endpoint: Option<String>,
+    token_endpoint: Option<String>,
+    userinfo_endpoint: Option<String>,
+    error: Option<String>,
+}
+
+async fn test_federation_connection<S>(
+    Json(body): Json<TestConnectionBody>,
+) -> impl IntoResponse
+where
+    S: UserRepository
+        + SessionRepository
+        + OrgRepository
+        + AuditLogRepository
+        + OidcClientRepository
+        + OidcFederationProviderRepository
+        + DeviceCodeRepository
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    let discovery_url = format!(
+        "{}/.well-known/openid-configuration",
+        body.issuer.trim_end_matches('/')
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+
+    let resp = match client.get(&discovery_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(TestConnectionResult {
+                ok: false,
+                authorization_endpoint: None,
+                token_endpoint: None,
+                userinfo_endpoint: None,
+                error: Some(format!("failed to reach issuer: {e}")),
+            })
+            .into_response();
+        }
+    };
+
+    if !resp.status().is_success() {
+        return Json(TestConnectionResult {
+            ok: false,
+            authorization_endpoint: None,
+            token_endpoint: None,
+            userinfo_endpoint: None,
+            error: Some(format!(
+                "discovery returned HTTP {}",
+                resp.status().as_u16()
+            )),
+        })
+        .into_response();
+    }
+
+    #[derive(Deserialize)]
+    struct Discovery {
+        #[serde(default)]
+        authorization_endpoint: Option<String>,
+        #[serde(default)]
+        token_endpoint: Option<String>,
+        #[serde(default)]
+        userinfo_endpoint: Option<String>,
+    }
+
+    match resp.json::<Discovery>().await {
+        Ok(d) => Json(TestConnectionResult {
+            ok: d.authorization_endpoint.is_some() && d.token_endpoint.is_some(),
+            authorization_endpoint: d.authorization_endpoint,
+            token_endpoint: d.token_endpoint,
+            userinfo_endpoint: d.userinfo_endpoint,
+            error: None,
+        })
+        .into_response(),
+        Err(e) => Json(TestConnectionResult {
+            ok: false,
+            authorization_endpoint: None,
+            token_endpoint: None,
+            userinfo_endpoint: None,
+            error: Some(format!("invalid discovery JSON: {e}")),
+        })
+        .into_response(),
     }
 }
 

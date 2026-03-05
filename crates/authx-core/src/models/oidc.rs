@@ -139,8 +139,28 @@ pub struct OidcFederationProvider {
     /// AES-GCM encrypted client secret.
     pub secret_enc: String,
     pub scopes: String,
+    /// Optional organization this provider is scoped to.
+    pub org_id: Option<Uuid>,
     pub enabled: bool,
     pub created_at: DateTime<Utc>,
+    /// Claim mapping rules (JSON array). Empty means no mapping.
+    #[serde(default)]
+    pub claim_mapping: Vec<ClaimMappingRule>,
+}
+
+/// A rule that maps an external IdP claim to a local attribute or role.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClaimMappingRule {
+    /// The external claim path (e.g. "groups", "email", "roles").
+    pub source_claim: String,
+    /// Match condition: "equals", "contains", "regex".
+    pub match_type: String,
+    /// Value to match against.
+    pub match_value: String,
+    /// Action: "assign_role", "set_attribute", "add_to_org".
+    pub action: String,
+    /// Target value for the action (e.g. role name, attribute value, org slug).
+    pub target: String,
 }
 
 #[derive(Debug, Clone)]
@@ -150,4 +170,6 @@ pub struct CreateOidcFederationProvider {
     pub client_id: String,
     pub secret_enc: String,
     pub scopes: String,
+    pub org_id: Option<Uuid>,
+    pub claim_mapping: Vec<ClaimMappingRule>,
 }

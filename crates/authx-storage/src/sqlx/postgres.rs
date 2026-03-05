@@ -1203,6 +1203,8 @@ impl OidcTokenRepository for PostgresStore {
 // ── OidcFederationProviderRepository ──────────────────────────────────────────
 
 fn map_oidc_federation_provider(r: &sqlx::postgres::PgRow) -> OidcFederationProvider {
+    let claim_mapping_json: serde_json::Value = r.try_get("claim_mapping").unwrap_or(serde_json::json!([]));
+    let claim_mapping = serde_json::from_value(claim_mapping_json).unwrap_or_default();
     OidcFederationProvider {
         id: r.get("id"),
         name: r.get("name"),
@@ -1210,19 +1212,22 @@ fn map_oidc_federation_provider(r: &sqlx::postgres::PgRow) -> OidcFederationProv
         client_id: r.get("client_id"),
         secret_enc: r.get("secret_enc"),
         scopes: r.get("scopes"),
+        org_id: r.try_get("org_id").ok(),
         enabled: r.get("enabled"),
         created_at: r.get("created_at"),
+        claim_mapping,
     }
 }
 
 #[async_trait]
 impl OidcFederationProviderRepository for PostgresStore {
     async fn create(&self, data: CreateOidcFederationProvider) -> Result<OidcFederationProvider> {
+        let claim_mapping_json = serde_json::to_value(&data.claim_mapping).unwrap_or(serde_json::json!([]));
         let row = sqlx::query(
             "INSERT INTO authx_oidc_federation_providers \
-               (id, name, issuer, client_id, secret_enc, scopes, enabled) \
-             VALUES ($1, $2, $3, $4, $5, $6, true) \
-             RETURNING id, name, issuer, client_id, secret_enc, scopes, enabled, created_at",
+               (id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) \
+             RETURNING id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled, created_at",
         )
         .bind(Uuid::new_v4())
         .bind(&data.name)
@@ -1230,6 +1235,8 @@ impl OidcFederationProviderRepository for PostgresStore {
         .bind(&data.client_id)
         .bind(&data.secret_enc)
         .bind(&data.scopes)
+        .bind(data.org_id)
+        .bind(claim_mapping_json)
         .fetch_one(&self.pool)
         .await
         .map_err(db_err)?;
@@ -1240,7 +1247,7 @@ impl OidcFederationProviderRepository for PostgresStore {
 
     async fn find_by_id(&self, id: Uuid) -> Result<Option<OidcFederationProvider>> {
         let row = sqlx::query(
-            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled, created_at \
              FROM authx_oidc_federation_providers WHERE id = $1",
         )
         .bind(id)
@@ -1252,7 +1259,7 @@ impl OidcFederationProviderRepository for PostgresStore {
 
     async fn find_by_name(&self, name: &str) -> Result<Option<OidcFederationProvider>> {
         let row = sqlx::query(
-            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled, created_at \
              FROM authx_oidc_federation_providers WHERE name = $1",
         )
         .bind(name)
@@ -1264,7 +1271,7 @@ impl OidcFederationProviderRepository for PostgresStore {
 
     async fn list_enabled(&self) -> Result<Vec<OidcFederationProvider>> {
         let rows = sqlx::query(
-            "SELECT id, name, issuer, client_id, secret_enc, scopes, enabled, created_at \
+            "SELECT id, name, issuer, client_id, secret_enc, scopes, org_id, claim_mapping, enabled, created_at \
              FROM authx_oidc_federation_providers WHERE enabled = true ORDER BY name",
         )
         .fetch_all(&self.pool)

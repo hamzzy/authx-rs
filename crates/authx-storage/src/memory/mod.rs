@@ -734,8 +734,10 @@ impl OidcFederationProviderRepository for MemoryStore {
             client_id: data.client_id,
             secret_enc: data.secret_enc,
             scopes: data.scopes,
+            org_id: data.org_id,
             enabled: true,
             created_at: Utc::now(),
+            claim_mapping: data.claim_mapping,
         };
         wlock!(self.oidc_federation_providers, "oidc_federation_providers").push(provider.clone());
         Ok(provider)

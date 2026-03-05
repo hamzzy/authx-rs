@@ -51,6 +51,11 @@ where
         &self.storage
     }
 
+    /// Access the event bus for emitting audit events.
+    pub fn events(&self) -> &EventBus {
+        &self.events
+    }
+
     /// Paginated list of all users ordered by `created_at`.
     #[instrument(skip(self))]
     pub async fn list_users(&self, offset: u32, limit: u32) -> Result<Vec<User>> {

@@ -251,6 +251,8 @@ async fn create_federation(args: FederationCreateArgs) -> Result<()> {
             client_id: args.client_id.clone(),
             secret_enc,
             scopes: args.scopes.clone(),
+            org_id: None,
+            claim_mapping: vec![],
         },
     )
     .await

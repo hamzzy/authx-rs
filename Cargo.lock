@@ -238,6 +238,7 @@ dependencies = [
  "authx-storage",
  "axum",
  "chrono",
+ "reqwest",
  "serde",
  "serde_json",
  "subtle",

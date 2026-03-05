@@ -14,9 +14,9 @@ pub use credential::{CreateCredential, Credential, CredentialKind};
 pub use invite::{CreateInvite, Invite};
 pub use oauth_account::{OAuthAccount, UpsertOAuthAccount};
 pub use oidc::{
-    AuthorizationCode, CreateAuthorizationCode, CreateDeviceCode, CreateOidcClient,
-    CreateOidcFederationProvider, CreateOidcToken, DeviceCode, OidcClient, OidcFederationProvider,
-    OidcToken, OidcTokenType,
+    AuthorizationCode, ClaimMappingRule, CreateAuthorizationCode, CreateDeviceCode,
+    CreateOidcClient, CreateOidcFederationProvider, CreateOidcToken, DeviceCode, OidcClient,
+    OidcFederationProvider, OidcToken, OidcTokenType,
 };
 pub use organization::{CreateOrg, Membership, Organization, Role};
 pub use session::{CreateSession, Session};

@@ -10,14 +10,16 @@ use rand::Rng;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tracing::instrument;
+use uuid::Uuid;
 
 use authx_core::{
     crypto::{decrypt, encrypt, sha256_hex},
     error::{AuthError, Result},
-    models::{CreateSession, CreateUser, Session, UpsertOAuthAccount, User},
+    models::{ClaimMappingRule, CreateSession, CreateUser, Session, UpsertOAuthAccount, User},
 };
 use authx_storage::ports::{
-    OAuthAccountRepository, OidcFederationProviderRepository, SessionRepository, UserRepository,
+    OAuthAccountRepository, OidcFederationProviderRepository, OrgRepository, SessionRepository,
+    UserRepository,
 };
 
 /// Response from begin() — redirect the user to authorization_url.
@@ -49,6 +51,9 @@ pub struct OidcUserInfo {
     pub name: Option<String>,
     #[serde(default)]
     pub preferred_username: Option<String>,
+    /// All extra claims for claim mapping evaluation.
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
 }
 
 /// Stored federation flow state (code_verifier + redirect_uri).
@@ -74,6 +79,7 @@ where
         + UserRepository
         + SessionRepository
         + OAuthAccountRepository
+        + OrgRepository
         + Clone
         + Send
         + Sync
@@ -300,6 +306,11 @@ where
         )
         .await?;
 
+        // Apply claim mapping rules
+        let session_org_id: Option<Uuid> = self
+            .apply_claim_mapping(user.id, &provider, &userinfo.extra)
+            .await;
+
         let raw: [u8; 32] = rand::thread_rng().gen();
         let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
@@ -311,7 +322,7 @@ where
                 token_hash,
                 device_info: serde_json::json!({ "oidc_federation": provider_name }),
                 ip_address: ip.to_string(),
-                org_id: None,
+                org_id: session_org_id.or(provider.org_id),
                 expires_at: Utc::now() + chrono::Duration::seconds(self.session_ttl_secs),
             },
         )
@@ -319,5 +330,98 @@ where
 
         tracing::info!(user_id = %user.id, provider = provider_name, "oidc federation sign-in complete");
         Ok((user.clone(), session, raw_str))
+    }
+
+    /// Evaluate claim mapping rules against external IdP claims.
+    /// Returns an org_id if a rule resolved to "add_to_org".
+    async fn apply_claim_mapping(
+        &self,
+        user_id: Uuid,
+        provider: &authx_core::models::OidcFederationProvider,
+        claims: &serde_json::Value,
+    ) -> Option<Uuid> {
+        let mut resolved_org_id = None;
+
+        for rule in &provider.claim_mapping {
+            if !rule_matches(rule, claims) {
+                continue;
+            }
+
+            match rule.action.as_str() {
+                "add_to_org" => {
+                    if let Ok(Some(org)) =
+                        OrgRepository::find_by_slug(&self.storage, &rule.target).await
+                    {
+                        // Find default role for the org
+                        if let Ok(roles) = OrgRepository::find_roles(&self.storage, org.id).await {
+                            let role_id = roles
+                                .iter()
+                                .find(|r| r.name == "member")
+                                .or(roles.first())
+                                .map(|r| r.id);
+                            if let Some(rid) = role_id {
+                                let _ = OrgRepository::add_member(
+                                    &self.storage,
+                                    org.id,
+                                    user_id,
+                                    rid,
+                                )
+                                .await;
+                            }
+                        }
+                        resolved_org_id = Some(org.id);
+                    }
+                }
+                "assign_role" => {
+                    // Assign a specific role within the provider's org
+                    if let Some(org_id) = provider.org_id {
+                        if let Ok(roles) = OrgRepository::find_roles(&self.storage, org_id).await {
+                            if let Some(role) = roles.iter().find(|r| r.name == rule.target) {
+                                let _ = OrgRepository::update_member_role(
+                                    &self.storage,
+                                    org_id,
+                                    user_id,
+                                    role.id,
+                                )
+                                .await;
+                            }
+                        }
+                    }
+                }
+                other => {
+                    tracing::debug!(action = other, "unknown claim mapping action, skipping");
+                }
+            }
+        }
+
+        resolved_org_id
+    }
+}
+
+/// Check if a claim mapping rule matches against the given claims JSON.
+fn rule_matches(rule: &ClaimMappingRule, claims: &serde_json::Value) -> bool {
+    let claim_value = match claims.get(&rule.source_claim) {
+        Some(v) => v,
+        None => return false,
+    };
+
+    match rule.match_type.as_str() {
+        "equals" => match claim_value {
+            serde_json::Value::String(s) => s == &rule.match_value,
+            serde_json::Value::Bool(b) => b.to_string() == rule.match_value,
+            serde_json::Value::Number(n) => n.to_string() == rule.match_value,
+            _ => false,
+        },
+        "contains" => match claim_value {
+            serde_json::Value::String(s) => s.contains(&rule.match_value),
+            serde_json::Value::Array(arr) => arr.iter().any(|v| {
+                v.as_str()
+                    .map(|s| s == rule.match_value)
+                    .unwrap_or(false)
+            }),
+            _ => false,
+        },
+        "exists" => true, // claim exists, that's enough
+        _ => false,
     }
 }

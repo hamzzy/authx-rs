@@ -69,6 +69,8 @@ where
         .route("/authorize", get(authorize_handler::<S>))
         .route("/token", post(token_handler_unified::<S>))
         .route("/userinfo", get(userinfo_handler::<S>))
+        .route("/revoke", post(revoke_handler::<S>))
+        .route("/introspect", post(introspect_handler::<S>))
         .route("/jwks", get(jwks_handler::<S>))
         // Device Authorization Grant (RFC 8628)
         .route(
@@ -304,6 +306,88 @@ async fn jwks_handler<S>(
     Ok(Json(serde_json::to_value(jwks).unwrap()))
 }
 
+// ── Token Revocation (RFC 7009) & Introspection (RFC 7662) ───────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct RevocationForm {
+    pub token: String,
+    #[serde(default)]
+    pub token_type_hint: Option<String>,
+    pub client_id: String,
+    #[serde(default)]
+    pub client_secret: Option<String>,
+}
+
+#[instrument(skip(state, form))]
+async fn revoke_handler<S>(
+    State(state): State<OidcProviderState<S>>,
+    Form(form): Form<RevocationForm>,
+) -> impl IntoResponse
+where
+    S: authx_storage::ports::OidcClientRepository
+        + authx_storage::ports::AuthorizationCodeRepository
+        + authx_storage::ports::OidcTokenRepository
+        + authx_storage::ports::DeviceCodeRepository
+        + authx_storage::ports::UserRepository
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    // RFC 7009: always return 200, even on errors (to prevent token scanning)
+    let _ = state
+        .service
+        .revoke_token(
+            &form.token,
+            form.token_type_hint.as_deref(),
+            &form.client_id,
+            form.client_secret.as_deref(),
+        )
+        .await;
+    StatusCode::OK
+}
+
+#[derive(Debug, Deserialize)]
+pub struct IntrospectionForm {
+    pub token: String,
+    #[serde(default)]
+    pub token_type_hint: Option<String>,
+    pub client_id: String,
+    #[serde(default)]
+    pub client_secret: Option<String>,
+}
+
+#[instrument(skip(state, form))]
+async fn introspect_handler<S>(
+    State(state): State<OidcProviderState<S>>,
+    Form(form): Form<IntrospectionForm>,
+) -> impl IntoResponse
+where
+    S: authx_storage::ports::OidcClientRepository
+        + authx_storage::ports::AuthorizationCodeRepository
+        + authx_storage::ports::OidcTokenRepository
+        + authx_storage::ports::DeviceCodeRepository
+        + authx_storage::ports::UserRepository
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    match state
+        .service
+        .introspect_token(
+            &form.token,
+            form.token_type_hint.as_deref(),
+            &form.client_id,
+            form.client_secret.as_deref(),
+        )
+        .await
+    {
+        Ok(resp) => Json(resp).into_response(),
+        Err(_) => Json(serde_json::json!({ "active": false })).into_response(),
+    }
+}
+
 // ── Device Authorization Grant (RFC 8628) ────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -436,6 +520,7 @@ where
         + authx_storage::ports::UserRepository
         + authx_storage::ports::SessionRepository
         + authx_storage::ports::OAuthAccountRepository
+        + authx_storage::ports::OrgRepository
         + Clone
         + Send
         + Sync
@@ -459,6 +544,7 @@ where
         + authx_storage::ports::UserRepository
         + authx_storage::ports::SessionRepository
         + authx_storage::ports::OAuthAccountRepository
+        + authx_storage::ports::OrgRepository
         + Clone
         + Send
         + Sync
@@ -486,6 +572,7 @@ where
         + authx_storage::ports::UserRepository
         + authx_storage::ports::SessionRepository
         + authx_storage::ports::OAuthAccountRepository
+        + authx_storage::ports::OrgRepository
         + Clone
         + Send
         + Sync

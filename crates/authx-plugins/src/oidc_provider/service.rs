@@ -71,6 +71,44 @@ pub enum DeviceCodeError {
     AccessDenied,
 }
 
+/// Token introspection response (RFC 7662).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct IntrospectionResponse {
+    pub active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iat: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sub: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iss: Option<String>,
+}
+
+impl IntrospectionResponse {
+    pub fn inactive() -> Self {
+        Self {
+            active: false,
+            scope: None,
+            client_id: None,
+            username: None,
+            token_type: None,
+            exp: None,
+            iat: None,
+            sub: None,
+            iss: None,
+        }
+    }
+}
+
 /// Input for creating an authorization code.
 #[derive(Debug, Clone, Copy)]
 pub struct CreateAuthorizationCodeRequest<'a> {
@@ -374,6 +412,147 @@ where
             claims["preferred_username"] = serde_json::Value::String(u.clone());
         }
         Ok(claims)
+    }
+
+    // ── Token Revocation (RFC 7009) ──────────────────────────────────────
+
+    /// Revoke a token (access or refresh). Per RFC 7009, the endpoint always
+    /// returns success even if the token was already invalid.
+    #[instrument(skip(self, token, client_secret))]
+    pub async fn revoke_token(
+        &self,
+        token: &str,
+        token_type_hint: Option<&str>,
+        client_id: &str,
+        client_secret: Option<&str>,
+    ) -> Result<()> {
+        self.authenticate_client(client_id, client_secret).await?;
+
+        // Try refresh token first (most common revocation target)
+        let try_refresh = token_type_hint.is_none() || token_type_hint == Some("refresh_token");
+        let try_access = token_type_hint.is_none() || token_type_hint == Some("access_token");
+
+        if try_refresh {
+            let token_hash = sha256_hex(token.as_bytes());
+            if let Ok(Some(oidc_token)) =
+                OidcTokenRepository::find_by_token_hash(&self.storage, &token_hash).await
+            {
+                if oidc_token.client_id == client_id {
+                    let _ = OidcTokenRepository::revoke(&self.storage, oidc_token.id).await;
+                }
+                return Ok(());
+            }
+        }
+
+        if try_access {
+            // Access tokens are JWTs — we can't revoke them server-side, but we
+            // can revoke all refresh tokens for the user+client to limit blast radius.
+            if let Ok(claims) = self.config.key_store.verify(token) {
+                if let Ok(user_id) = Uuid::parse_str(&claims.sub) {
+                    let _ = OidcTokenRepository::revoke_all_for_user_client(
+                        &self.storage,
+                        user_id,
+                        client_id,
+                    )
+                    .await;
+                }
+            }
+        }
+
+        // Per RFC 7009 Section 2.2: always return 200, even for invalid tokens.
+        Ok(())
+    }
+
+    // ── Token Introspection (RFC 7662) ───────────────────────────────────
+
+    /// Introspect a token. Returns active=true with claims for valid tokens,
+    /// or active=false for invalid/expired/revoked tokens.
+    #[instrument(skip(self, token, client_secret))]
+    pub async fn introspect_token(
+        &self,
+        token: &str,
+        token_type_hint: Option<&str>,
+        client_id: &str,
+        client_secret: Option<&str>,
+    ) -> Result<IntrospectionResponse> {
+        self.authenticate_client(client_id, client_secret).await?;
+
+        let try_refresh = token_type_hint.is_none() || token_type_hint == Some("refresh_token");
+        let try_access = token_type_hint.is_none() || token_type_hint == Some("access_token");
+
+        // Check as refresh token
+        if try_refresh {
+            let token_hash = sha256_hex(token.as_bytes());
+            if let Ok(Some(oidc_token)) =
+                OidcTokenRepository::find_by_token_hash(&self.storage, &token_hash).await
+            {
+                if oidc_token.client_id == client_id && !oidc_token.revoked {
+                    let expired = oidc_token
+                        .expires_at
+                        .map(|exp| exp < Utc::now())
+                        .unwrap_or(false);
+                    if !expired {
+                        return Ok(IntrospectionResponse {
+                            active: true,
+                            scope: Some(oidc_token.scope),
+                            client_id: Some(oidc_token.client_id),
+                            username: None,
+                            token_type: Some("refresh_token".into()),
+                            exp: oidc_token.expires_at.map(|t| t.timestamp()),
+                            iat: Some(oidc_token.created_at.timestamp()),
+                            sub: Some(oidc_token.user_id.to_string()),
+                            iss: Some(self.config.issuer.clone()),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Check as access token (JWT)
+        if try_access {
+            if let Ok(claims) = self.config.key_store.verify(token) {
+                let extra = claims.extra;
+                return Ok(IntrospectionResponse {
+                    active: true,
+                    scope: extra.get("scope").and_then(|v| v.as_str()).map(String::from),
+                    client_id: extra.get("aud").and_then(|v| v.as_str()).map(String::from),
+                    username: None,
+                    token_type: Some("access_token".into()),
+                    exp: Some(claims.exp),
+                    iat: Some(claims.iat),
+                    sub: Some(claims.sub),
+                    iss: extra.get("iss").and_then(|v| v.as_str()).map(String::from),
+                });
+            }
+        }
+
+        Ok(IntrospectionResponse::inactive())
+    }
+
+    /// Authenticate a client by client_id + optional client_secret.
+    async fn authenticate_client(
+        &self,
+        client_id: &str,
+        client_secret: Option<&str>,
+    ) -> Result<()> {
+        let client = OidcClientRepository::find_by_client_id(&self.storage, client_id)
+            .await?
+            .ok_or(AuthError::InvalidToken)?;
+
+        if !client.secret_hash.is_empty() {
+            let secret = client_secret.ok_or(AuthError::InvalidToken)?;
+            let hash = sha256_hex(secret.as_bytes());
+            use subtle::ConstantTimeEq;
+            if hash
+                .as_bytes()
+                .ct_eq(client.secret_hash.as_bytes())
+                .unwrap_u8()
+                == 0
+            {
+                return Err(AuthError::InvalidToken);
+            }
+        }
+        Ok(())
     }
 
     // ── Device Authorization Grant (RFC 8628) ─────────────────────────────

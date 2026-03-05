@@ -1,4 +1,5 @@
 pub mod brute_force;
+pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod events;
@@ -7,6 +8,7 @@ pub mod models;
 pub mod policy;
 
 pub use brute_force::{KeyedRateLimiter, LockoutConfig, LoginAttemptTracker};
+pub use config::AuthxConfig;
 pub use crypto::KeyRotationStore;
 pub use error::{AuthError, Result, StorageError};
 pub use identity::Identity;

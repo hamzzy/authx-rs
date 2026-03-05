@@ -13,6 +13,11 @@ pub enum AuthEvent {
     EmailVerified { user_id: Uuid },
     OAuthLinked { user_id: Uuid, provider: String },
     InviteAccepted { membership: Membership },
+    // OIDC administration events
+    OidcClientCreated { client_id: String, name: String, actor_id: Option<Uuid> },
+    OidcClientDeleted { client_id: String, actor_id: Option<Uuid> },
+    OidcFederationProviderCreated { provider_id: Uuid, name: String, actor_id: Option<Uuid> },
+    OidcFederationProviderDeleted { provider_id: Uuid, actor_id: Option<Uuid> },
 }
 
 impl AuthEvent {
@@ -27,6 +32,10 @@ impl AuthEvent {
             AuthEvent::EmailVerified { .. } => "auth.email_verified",
             AuthEvent::OAuthLinked { .. } => "auth.oauth_linked",
             AuthEvent::InviteAccepted { .. } => "org.invite_accepted",
+            AuthEvent::OidcClientCreated { .. } => "oidc.client_created",
+            AuthEvent::OidcClientDeleted { .. } => "oidc.client_deleted",
+            AuthEvent::OidcFederationProviderCreated { .. } => "oidc.federation_provider_created",
+            AuthEvent::OidcFederationProviderDeleted { .. } => "oidc.federation_provider_deleted",
         }
     }
 }

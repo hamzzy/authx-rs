@@ -9,6 +9,7 @@ use authx_axum::{
     csrf_middleware, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer, SessionLayer,
 };
 use authx_core::brute_force::LockoutConfig;
+use authx_core::config::AuthxConfig;
 use authx_storage::{memory::MemoryStore, sqlx::PostgresStore};
 
 #[derive(Args)]
@@ -76,29 +77,41 @@ fn validate_args(args: &ServeArgs) -> Result<()> {
     Ok(())
 }
 
+impl From<&ServeArgs> for AuthxConfig {
+    fn from(args: &ServeArgs) -> Self {
+        Self {
+            bind: args.bind.clone(),
+            database_url: args.database_url.clone(),
+            secure_cookies: args.secure_cookies,
+            session_ttl_secs: args.session_ttl as i64,
+            trusted_origins: args
+                .trusted_origins
+                .split(',')
+                .map(|s| s.trim().to_owned())
+                .collect(),
+            rate_limit_max: args.rate_limit,
+            rate_limit_window: Duration::from_secs(60),
+            lockout_max_failures: args.lockout_failures,
+            lockout_window: Duration::from_secs(args.lockout_minutes * 60),
+            ..AuthxConfig::default()
+        }
+    }
+}
+
 pub async fn run(args: ServeArgs) -> Result<()> {
     validate_args(&args)?;
+    let cfg = AuthxConfig::from(&args);
     tracing::debug!(
-        bind = %args.bind,
-        session_ttl = args.session_ttl,
-        rate_limit = args.rate_limit,
-        lockout_failures = args.lockout_failures,
-        lockout_minutes = args.lockout_minutes,
+        bind = %cfg.bind,
+        session_ttl = cfg.session_ttl_secs,
+        rate_limit = cfg.rate_limit_max,
+        lockout_failures = cfg.lockout_max_failures,
         "startup config validated"
     );
 
-    let origins: Vec<String> = args
-        .trusted_origins
-        .split(',')
-        .map(|s| s.trim().to_owned())
-        .collect();
+    let lockout = LockoutConfig::new(cfg.lockout_max_failures, cfg.lockout_window);
 
-    let lockout = LockoutConfig::new(
-        args.lockout_failures,
-        Duration::from_secs(args.lockout_minutes * 60),
-    );
-
-    if let Some(ref url) = args.database_url {
+    if let Some(ref url) = cfg.database_url {
         tracing::info!("connecting to postgres at {url}");
         let store = PostgresStore::connect(url).await?;
         PostgresStore::migrate(&store.pool).await?;
@@ -107,13 +120,13 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         let app = make_app(
             store.clone(),
             store,
-            &origins,
-            args.session_ttl,
-            args.secure_cookies,
+            &cfg.trusted_origins,
+            cfg.session_ttl_secs as u64,
+            cfg.secure_cookies,
             lockout,
-            args.rate_limit,
+            cfg.rate_limit_max,
         );
-        return listen(app, &args.bind).await;
+        return listen(app, &cfg.bind).await;
     }
 
     tracing::warn!("no DATABASE_URL — using in-memory store (data is not persisted)");
@@ -121,13 +134,13 @@ pub async fn run(args: ServeArgs) -> Result<()> {
     let app = make_app(
         store.clone(),
         store,
-        &origins,
-        args.session_ttl,
-        args.secure_cookies,
+        &cfg.trusted_origins,
+        cfg.session_ttl_secs as u64,
+        cfg.secure_cookies,
         lockout,
-        args.rate_limit,
+        cfg.rate_limit_max,
     );
-    listen(app, &args.bind).await
+    listen(app, &cfg.bind).await
 }
 
 fn make_app<S>(
