@@ -5,7 +5,7 @@ import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { JSDOM } from "jsdom";
 
-import { MemoryTokenStore, AuthxTokenManager } from "@authx/sdk-web";
+import { MemoryTokenStore, AuthxTokenManager } from "../../authx-sdk-web/src/index.js";
 import {
   AuthxTokenProvider,
   useAccessToken,

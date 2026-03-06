@@ -8,7 +8,7 @@ test("Vue plugin provides a reactive authx token composable", async () => {
   try {
     const { defineComponent, h, nextTick } = await import("vue");
     const { mount } = await import("@vue/test-utils");
-    const { MemoryTokenStore, AuthxTokenManager } = await import("@authx/sdk-web");
+    const { MemoryTokenStore, AuthxTokenManager } = await import("../../authx-sdk-web/src/index.js");
     const { createAuthxPlugin, useAuthxToken } = await import("../dist/esm/index.js");
 
     const client = new AuthxTokenManager({
