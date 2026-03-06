@@ -10,15 +10,26 @@ description: Get an authx-rs Axum server running in under 5 minutes.
 
    ```toml title="Cargo.toml"
    [dependencies]
-   authx-core    = { git = "https://github.com/hamzzy/authx-rs" }
-   authx-storage = { git = "https://github.com/hamzzy/authx-rs" }
-   authx-plugins = { git = "https://github.com/hamzzy/authx-rs" }
-   authx-axum    = { git = "https://github.com/hamzzy/authx-rs" }
+   authx-core    = "0.1.1"
+   authx-storage = "0.1.1"
+   authx-axum    = "0.1.1"
 
-   axum              = "0.7"
-   tokio             = { version = "1", features = ["full"] }
-   tower-http        = { version = "0.6", features = ["trace"] }
+   axum               = "0.7"
+   serde_json         = "1"
+   tokio              = { version = "1", features = ["full"] }
+   tower-http         = { version = "0.6", features = ["trace"] }
+   tracing            = "0.1"
    tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+   ```
+
+   If you are hacking on the repo locally instead of consuming the published crates,
+   use path dependencies:
+
+   ```toml title="Cargo.toml"
+   [dependencies]
+   authx-core    = { path = "../authx-rs/crates/authx-core" }
+   authx-storage = { path = "../authx-rs/crates/authx-storage" }
+   authx-axum    = { path = "../authx-rs/crates/authx-axum" }
    ```
 
 2. **Write `main.rs`**
@@ -35,7 +46,7 @@ description: Get an authx-rs Axum server running in under 5 minutes.
        RateLimitConfig, RateLimitLayer, RequireAuth, SessionLayer,
    };
    use authx_core::brute_force::LockoutConfig;
-   use authx_storage::memory::MemoryStore;
+   use authx_storage::MemoryStore;
 
    #[tokio::main]
    async fn main() {

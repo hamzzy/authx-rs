@@ -15,6 +15,8 @@ cargo run -p axum-app
 
 The server starts at `http://localhost:3000`.
 
+Open `http://localhost:3000/` for a small index page with the seeded demo routes.
+
 ## What it demonstrates
 
 - `MemoryStore` (zero config — no DB required)
@@ -25,6 +27,9 @@ The server starts at `http://localhost:3000`.
 - Per-device session listing and revocation
 - Brute-force lockout after 5 failures within 15 minutes
 - `RequireAuth` extractor protecting `/me`
+- OIDC provider endpoints under `/oidc`
+- Seeded public OIDC demo client with `/demo/oidc/login`
+- Seeded federation provider named `self` with `/demo/sso?provider=self`
 
 ## Test it with curl
 
@@ -58,3 +63,23 @@ curl -s -b /tmp/jar -X POST http://localhost:3000/auth/sign-out/all \
 curl http://localhost:3000/health
 # {"status":"ok"}
 ```
+
+## Demo OIDC provider flow
+
+After signing in locally, open:
+
+```text
+http://localhost:3000/demo/oidc/login
+```
+
+That route starts an authorization-code flow against authx's own embedded OIDC provider and renders the resulting token response plus userinfo.
+
+## Demo federation flow
+
+After signing in locally, open:
+
+```text
+http://localhost:3000/demo/sso?provider=self
+```
+
+The example seeds a federation provider called `self` that points back at the same app's OIDC provider. This demonstrates the federation plumbing without requiring an external Okta or Azure tenant.

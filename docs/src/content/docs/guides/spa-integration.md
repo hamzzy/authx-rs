@@ -225,21 +225,21 @@ function App() {
 
 ## OIDC/SSO integration for SPAs
 
-authx-rs supports OIDC federation for enterprise SSO (Okta, Azure AD, Google Workspace, etc.). The flow is entirely redirect-based; the SPA never interacts with the identity provider directly.
+authx-rs supports OIDC federation for enterprise SSO (Okta, Azure AD, Google Workspace, etc.). The SPA still uses a browser redirect, but the current built-in callback ends with a JSON response plus `Set-Cookie`, not a final redirect back into the SPA.
 
 ### Flow diagram
 
 ```
 1. User clicks "Sign in with Okta" in the SPA
 2. SPA redirects to:
-     https://api.example.com/auth/oidc/okta/begin?redirect_uri=https://app.example.com/auth/callback
+     https://api.example.com/auth/federation/okta/begin?redirect_uri=https://api.example.com/auth/federation/okta/callback
 3. Backend generates PKCE + state, redirects browser to Okta
 4. User authenticates at Okta
 5. Okta redirects to:
-     https://api.example.com/auth/oidc/okta/callback?code=...&state=...
+     https://api.example.com/auth/federation/okta/callback?code=...&state=...
 6. Backend exchanges code for tokens, creates user + session, sets cookie
-7. Backend redirects browser to the SPA redirect_uri
-8. SPA loads with a valid session cookie already set
+7. Backend responds with JSON and a valid session cookie
+8. The browser can then navigate to the SPA or another authenticated route
 ```
 
 ### Backend setup for federation
@@ -249,14 +249,20 @@ use std::sync::Arc;
 use authx_axum::oidc_federation_router;
 use authx_plugins::oidc_federation::OidcFederationService;
 
-// Configure federation providers (typically from DB or config)
-let federation_svc = Arc::new(OidcFederationService::new(store.clone()));
+// Configure federation providers (typically from DB or config) and keep a
+// stable 32-byte encryption key for provider secrets and upstream tokens.
+let encryption_key: [u8; 32] = /* load from config */;
+let federation_svc = Arc::new(OidcFederationService::new(
+    store.clone(),
+    60 * 60 * 24 * 30,
+    encryption_key,
+));
 
 let federation_router = oidc_federation_router(federation_svc);
 
 let app = Router::new()
-    .nest("/auth",     auth_router)
-    .nest("/auth/oidc", federation_router)
+    .nest("/auth", auth_router)
+    .nest("/auth/federation", federation_router)
     .layer(SessionLayer::new(store))
     .layer(cors)
     .layer(TraceLayer::new_for_http());
@@ -274,9 +280,9 @@ The federation router exposes two routes per provider:
 ```typescript
 export function startSso(provider: string) {
   // Full-page redirect — not a fetch() call
-  const redirect = encodeURIComponent("https://app.example.com/auth/callback");
   window.location.href =
-    `https://api.example.com/auth/oidc/${provider}/begin?redirect_uri=${redirect}`;
+    `https://api.example.com/auth/federation/${provider}/begin` +
+    `?redirect_uri=https://api.example.com/auth/federation/${provider}/callback`;
 }
 ```
 
@@ -287,36 +293,16 @@ export function startSso(provider: string) {
 <button onclick="startSso('google')">Sign in with Google Workspace</button>
 ```
 
-### Frontend: handling the callback
+### Frontend: handling the current callback model
 
-After the backend completes the SSO flow, the user is redirected to your SPA's callback URL with a session cookie already set. The callback page simply confirms the session and navigates to the app:
+Today, the built-in federation callback is an authx endpoint, not a SPA route. It sets the authx session cookie and returns JSON. If you need a final redirect back into the SPA, add a thin wrapper route around `OidcFederationService` in your own app.
 
-```typescript
-// pages/auth/callback.tsx (React Router / Vue Router page)
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+That wrapper typically:
 
-export default function AuthCallback() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Session cookie was set by the backend during the redirect.
-    // Verify it works, then navigate to the dashboard.
-    fetch("https://api.example.com/auth/session", {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (res.ok) {
-          navigate("/dashboard");
-        } else {
-          navigate("/login?error=sso_failed");
-        }
-      });
-  }, [navigate]);
-
-  return <div>Completing sign-in...</div>;
-}
-```
+- stores any final destination you care about
+- calls the federation service callback
+- sets the cookie
+- returns `302 Found` to the SPA route you want
 
 ## Token-based auth alternative (mobile and CLI)
 

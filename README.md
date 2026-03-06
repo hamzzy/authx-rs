@@ -60,7 +60,8 @@ crates/
   authx-plugins/    # Plugin trait + all auth plugins
   authx-axum/       # Tower middleware, route handlers, cookies, CSRF, rate limiting
 examples/
-  axum-app/         # Full working integration demo
+  axum-app/         # Full working Axum integration demo
+  actix-app/        # Direct actix-web integration demo
 ```
 
 ---
