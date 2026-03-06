@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.4/schema.json",
+  "changelog": [
+    "@changesets/cli/changelog",
+    {
+      "repo": "hamzzy/authx-rs"
+    }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [
+    [
+      "@authx/sdk",
+      "@authx/sdk-web",
+      "@authx/sdk-react",
+      "@authx/sdk-vue"
+    ]
+  ],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

@@ -1,43 +1,95 @@
 # Releasing `authx-rs`
 
-This document describes the process for releasing new versions of the crates in this workspace.
+This document describes the release flow for both the Rust crates and the TypeScript SDK packages.
 
-## Prerequisites
-- All PRs merged into `main`.
-- `CRATES_IO_TOKEN` configured in GitHub Repository Secrets.
+## Automation Overview
 
-## Release Process
+There are now two version-preparation workflows:
 
-### 1. Update Versions
-Bump the version in the root `Cargo.toml`. Since we use workspace inheritance, this will update all member crates.
+- `Rust Versioning` in `.github/workflows/rust-versioning.yml`
+- `JS Versioning` in `.github/workflows/js-versioning.yml`
 
-```toml
-[workspace.package]
-version = "0.X.Y"
-```
+And one publish workflow:
 
-### 2. Update Documentation
-Ensure the `CHANGELOG.md` (if any) or `README.md` is updated with the new version's highlights.
+- `Release` in `.github/workflows/release.yml`
 
-### 3. Create a Tag
-Following semantic versioning, create a tag prefixed with `v`.
+The intended process is:
+
+1. Merge normal feature/fix PRs into `main`.
+2. Let the versioning workflows open/update release PRs.
+3. Merge the release PRs.
+4. Push a `vX.Y.Z` tag.
+5. Let `Release` publish crates, npm packages, and create the GitHub release.
+
+## Rust Crates
+
+Rust versioning and changelog updates are prepared automatically with `release-plz`.
+
+### What `Rust Versioning` does
+
+On pushes to `main`, `release-plz`:
+
+- computes the next crate versions
+- updates `Cargo.toml` / `Cargo.lock`
+- updates the root `CHANGELOG.md`
+- opens or updates a release PR
+
+The Rust changelog is configured in `release-plz.toml` and is written to the repository root `CHANGELOG.md`.
+
+### Rust maintainer flow
+
+1. Merge code changes into `main`.
+2. Wait for the `Rust Versioning` workflow to open or refresh its PR.
+3. Review the version bumps and changelog entries.
+4. Merge that PR.
+5. Tag the merged commit:
 
 ```bash
-git tag -a v0.X.Y -m "Release v0.X.Y"
-```
-
-### 4. Push the Tag
-Push the tag to the remote repository.
-
-```bash
+git checkout main
+git pull --ff-only
+git tag v0.X.Y
 git push origin v0.X.Y
 ```
 
-## Automation
-Pushing a `v*` tag triggers the `release.yml` GitHub Action, which:
-1. Builds and tests the workspace.
-2. Publishes all crates to crates.io in the correct dependency order.
-3. Automatically waits for the index to update between publishes.
+## TypeScript SDK Packages
 
-> [!IMPORTANT]
-> If a publish fail midway, you can resume by manually running the remaining `cargo publish -p <crate>` commands or re-triggering the action if you delete and re-push the tag.
+TypeScript package versioning is prepared with Changesets.
+
+See:
+
+- `docs/src/content/docs/guides/publish-typescript-sdk.md`
+- `.changeset/config.json`
+
+## Publish Prerequisites
+
+Before tagging a release, confirm:
+
+- `CRATES_IO_TOKEN` is configured in GitHub repository secrets
+- `NPM_TOKEN` is configured in GitHub repository secrets
+- GitHub Actions has permission to create and update pull requests
+- the release PRs for Rust and JS have already been merged
+
+## Publish Step
+
+Push a version tag:
+
+```bash
+git tag v0.X.Y
+git push origin v0.X.Y
+```
+
+## What `Release` does
+
+The tag-driven release workflow:
+
+1. runs the JS SDK release gates
+2. runs the Rust release gates
+3. publishes the Rust crates to crates.io
+4. publishes the npm packages
+5. creates the GitHub release
+
+## Notes
+
+- The Rust GitHub release no longer depends on manually parsing `CHANGELOG.md`; it uses generated GitHub release notes.
+- The root `CHANGELOG.md` is still maintained for the Rust workspace by `release-plz`.
+- If a crates.io publish fails midway, the workflow is idempotent and can be re-run safely for already-published versions.

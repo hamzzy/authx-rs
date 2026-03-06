@@ -11,6 +11,54 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  ts-sdk:
+    name: TypeScript SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test @authx/sdk
+        working-directory: packages/authx-sdk-ts
+        run: |
+          npm ci
+          npm test
+          npm run pack:check
+
+      - name: Test @authx/sdk-web
+        working-directory: packages/authx-sdk-web
+        run: |
+          npm ci
+          npm test
+          npm run pack:check
+
+      - name: Test @authx/sdk-react
+        working-directory: packages/authx-sdk-react
+        run: |
+          npm ci
+          npm test
+          npm run pack:check
+
+      - name: Test @authx/sdk-vue
+        working-directory: packages/authx-sdk-vue
+        run: |
+          npm ci
+          npm test
+          npm run pack:check
+
+      - name: Verify generated TypeScript API docs
+        run: |
+          node scripts/generate-ts-api-docs.mjs
+          git diff --exit-code -- docs/src/content/docs/reference/typescript
+
+      - name: Build docs site
+        working-directory: docs
+        run: |
+          npm install
+          npm run build
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

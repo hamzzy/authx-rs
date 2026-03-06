@@ -1,0 +1,40 @@
+name: JS Versioning
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".changeset/**"
+      - "packages/authx-sdk-ts/**"
+      - "packages/authx-sdk-web/**"
+      - "packages/authx-sdk-react/**"
+      - "packages/authx-sdk-vue/**"
+      - "package.json"
+      - ".github/workflows/js-versioning.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Changesets CLI
+        run: npm install
+
+      - name: Create or update version PR
+        uses: changesets/action@v1
+        with:
+          version: npm run version:js
+          publish: echo "npm package publishing is handled by the tag-driven release workflow"
+          title: "chore: version TypeScript SDK packages"
+          commit: "chore: version TypeScript SDK packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

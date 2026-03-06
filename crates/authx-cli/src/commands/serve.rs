@@ -215,8 +215,7 @@ where
 
     let csrf = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
     let rl_layer = RateLimitLayer::new(RateLimitConfig::new(rate_limit, Duration::from_secs(60)));
-    let state =
-        AuthxState::new_with_lockout(auth_store, session_ttl_secs, secure_cookies, lockout);
+    let state = AuthxState::new_with_lockout(auth_store, session_ttl_secs, secure_cookies, lockout);
     let webauthn_service = Arc::new(WebAuthnService::new(
         session_store.clone(),
         webauthn_rp_id.to_owned(),

@@ -62,11 +62,13 @@ crates/
 examples/
   axum-app/         # Full working Axum integration demo
   actix-app/        # Direct actix-web integration demo
+  react-sdk-app/    # React consumer app for the TypeScript SDK packages
+  vue-sdk-app/      # Vue consumer app for the TypeScript SDK packages
 packages/
-  authx-sdk-ts/     # Initial TypeScript SDK scaffold
-  authx-sdk-web/    # Browser token storage and refresh orchestration
-  authx-sdk-react/  # React bindings for authx token clients
-  authx-sdk-vue/    # Vue bindings for authx token clients
+  authx-sdk-ts/     # Low-level TypeScript SDK: OIDC, JWKS, PKCE, device, session helpers
+  authx-sdk-web/    # Browser token storage, authenticated fetch, and refresh orchestration
+  authx-sdk-react/  # React provider/hooks for authx token clients
+  authx-sdk-vue/    # Vue plugin/composable for authx token clients
 ```
 
 ---

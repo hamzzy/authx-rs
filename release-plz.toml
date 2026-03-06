@@ -1,0 +1,23 @@
+[workspace]
+changelog_path = "./CHANGELOG.md"
+dependencies_update = true
+git_release_enable = false
+pr_branch_prefix = "release-plz-"
+pr_labels = ["release", "rust"]
+publish_timeout = "10m"
+semver_check = false
+
+[changelog]
+body = """
+## `{{ package }}` - [{{ version }}]{%- if release_link -%}({{ release_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+{%- if commit.scope -%}
+- *({{ commit.scope }})* {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message }}{%- if commit.links %} ({% for link in commit.links %}[{{ link.text }}]({{ link.href }}) {% endfor -%}){% endif %}
+{% else -%}
+- {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message }}{%- if commit.links %} ({% for link in commit.links %}[{{ link.text }}]({{ link.href }}) {% endfor -%}){% endif %}
+{% endif -%}
+{% endfor -%}
+{% endfor -%}
+"""

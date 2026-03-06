@@ -103,6 +103,17 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Guides',
+          items: [
+            { label: 'TypeScript SDK',        slug: 'guides/typescript-sdk' },
+            { label: 'SPA Integration',       slug: 'guides/spa-integration' },
+            { label: 'authx as SPA IdP',      slug: 'guides/authx-idp-for-spa' },
+            { label: 'Enterprise OIDC SSO',   slug: 'guides/enterprise-oidc-sso' },
+            { label: 'Multi-Tenant SaaS',     slug: 'guides/multi-tenant-saas' },
+            { label: 'Publish TypeScript SDK',slug: 'guides/publish-typescript-sdk' },
+          ],
+        },
+        {
           label: 'Examples',
           items: [
             { label: 'Axum App',         slug: 'examples/axum-app' },

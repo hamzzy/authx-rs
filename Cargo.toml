@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/*", "examples/*"]
+members = [
+    "crates/*",
+    "examples/axum-app",
+    "examples/actix-app",
+]
 resolver = "2"
 
 [workspace.package]

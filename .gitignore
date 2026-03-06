@@ -3,3 +3,8 @@ SKILLS.MD
 ROADMAP.MD
 left.md
 dynamodb.md
+node_modules/
+dist/
+.astro/
+.vite/
+*.tsbuildinfo

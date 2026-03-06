@@ -1,5 +1,10 @@
 declare module "react" {
   export type ReactNode = unknown;
+  export interface ReactElement {
+    readonly type?: unknown;
+    readonly props?: unknown;
+    readonly key?: unknown;
+  }
 
   export interface ProviderProps<T> {
     value: T;
@@ -7,7 +12,7 @@ declare module "react" {
   }
 
   export interface Context<T> {
-    Provider: (props: ProviderProps<T>) => unknown;
+    Provider: (props: ProviderProps<T>) => ReactElement | null;
   }
 
   export function createContext<T>(defaultValue: T): Context<T>;
@@ -15,7 +20,7 @@ declare module "react" {
     type: unknown,
     props?: Record<string, unknown> | null,
     ...children: unknown[]
-  ): unknown;
+  ): ReactElement;
   export function useContext<T>(context: Context<T>): T;
   export function useEffect(
     effect: () => void | (() => void),

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useState,
+  type ReactElement,
   type ReactNode,
 } from "react";
 
@@ -37,7 +38,7 @@ export interface AuthxReactContextValue {
 
 const AuthxTokenContext = createContext<AuthxReactContextValue | null>(null);
 
-export function AuthxTokenProvider(props: AuthxTokenProviderProps) {
+export function AuthxTokenProvider(props: AuthxTokenProviderProps): ReactElement {
   const { client, children } = props;
   const [snapshot, setSnapshot] = useState<AuthxTokenSnapshot>(() => client.getSnapshot());
 

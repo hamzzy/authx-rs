@@ -1,19 +1,34 @@
 ---
 title: TypeScript SDK
-description: Initial TypeScript SDK scaffold for authx-rs browser and server runtimes.
+description: TypeScript SDK packages for authx-rs browser and server runtimes.
 ---
 
-An initial SDK scaffold now lives in the repository under `packages/authx-sdk-ts/`.
+The repository now contains a layered TypeScript SDK family under `packages/`:
 
-The package is dependency-free and targets modern runtimes with:
+- `packages/authx-sdk-ts/` for low-level OIDC, JWKS, PKCE, device, and browser-session helpers
+- `packages/authx-sdk-web/` for browser token storage and auto-refresh orchestration
+- `packages/authx-sdk-react/` for React provider/hooks on top of `@authx/sdk-web`
+- `packages/authx-sdk-vue/` for Vue plugin/composable on top of `@authx/sdk-web`
+
+Consumer examples now live in:
+
+- `examples/react-sdk-app/`
+- `examples/vue-sdk-app/`
+
+Maintainers should use the dedicated publish guide at `/guides/publish-typescript-sdk/`.
+
+The low-level package is dependency-free and targets modern runtimes with:
 
 - `fetch`
 - `URL`
 - Web Crypto (`crypto.getRandomValues`, `crypto.subtle`)
 
-## Current surface area
+## Package split
+
+### `@authx/sdk`
 
 - OIDC discovery
+- JWKS fetch and key selection helpers
 - PKCE helpers
 - authorization URL construction
 - code exchange
@@ -24,6 +39,32 @@ The package is dependency-free and targets modern runtimes with:
 - device authorization
 - browser-session helpers for authx cookie flows
 - typed SDK errors
+
+This package is ESM-only and intentionally stays at the protocol/helper layer.
+
+### `@authx/sdk-web`
+
+- token persistence with pluggable storage
+- access-token expiry tracking
+- single-flight refresh orchestration
+- authenticated `fetch()` wrapper with bearer injection
+- optional retry after `401`
+- OIDC refresh helper for standard token endpoints
+
+### `@authx/sdk-react`
+
+- `AuthxTokenProvider`
+- `useAuthxToken`
+- `useAuthxSnapshot`
+- `useAccessToken`
+- `useIsAuthenticated`
+- `useAuthenticatedFetch`
+
+### `@authx/sdk-vue`
+
+- `createAuthxPlugin`
+- `useAuthxToken`
+- reactive token snapshot and access-token state
 
 ## PKCE example
 
@@ -66,12 +107,59 @@ await auth.signIn({
 const session = await auth.session();
 ```
 
-## Current limitations
+## Browser token manager example
 
-- no published npm package yet
-- no generated API docs yet
-- React bindings now live in `packages/authx-sdk-react/`
-- Vue bindings now live in `packages/authx-sdk-vue/`
-- higher-level token storage and refresh orchestration now live in `packages/authx-sdk-web/`
+```ts
+import {
+  AuthxTokenManager,
+  BrowserStorageTokenStore,
+  createOidcTokenRefresher,
+} from "@authx/sdk-web";
 
-This is a starting point for the roadmap item, not the finished SDK.
+const tokens = new AuthxTokenManager({
+  storage: new BrowserStorageTokenStore(),
+  refresh: createOidcTokenRefresher({
+    tokenEndpoint: "https://auth.example.com/oidc/token",
+    clientId: "spa-client-id",
+  }),
+});
+
+await tokens.start();
+```
+
+## React example
+
+```tsx
+import { AuthxTokenProvider, useIsAuthenticated } from "@authx/sdk-react";
+
+function AuthState() {
+  const isAuthenticated = useIsAuthenticated();
+  return <div>{isAuthenticated ? "signed-in" : "signed-out"}</div>;
+}
+
+<AuthxTokenProvider client={tokens}>
+  <AuthState />
+</AuthxTokenProvider>;
+```
+
+## Vue example
+
+```ts
+import { createAuthxPlugin, useAuthxToken } from "@authx/sdk-vue";
+
+app.use(createAuthxPlugin(tokens));
+
+const auth = useAuthxToken();
+console.log(auth.isAuthenticated.value);
+```
+
+## Verification and current limitations
+
+- `@authx/sdk`, `@authx/sdk-web`, `@authx/sdk-react`, and `@authx/sdk-vue` all build in this repo
+- `@authx/sdk-web` has runtime tests for token refresh and storage behavior
+- `@authx/sdk-react` has runtime tests against a real React runtime
+- `@authx/sdk-vue` has runtime tests against a real Vue runtime
+- generated API reference lives under `/reference/typescript/`
+- tag-driven npm publishing is configured in `.github/workflows/release.yml`
+- JS version PRs are prepared by `.github/workflows/js-versioning.yml`
+- actual npm publication still requires a release tag and `NPM_TOKEN`
