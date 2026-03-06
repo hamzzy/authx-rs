@@ -62,6 +62,8 @@ crates/
 examples/
   axum-app/         # Full working Axum integration demo
   actix-app/        # Direct actix-web integration demo
+packages/
+  authx-sdk-ts/     # Initial TypeScript SDK scaffold
 ```
 
 ---

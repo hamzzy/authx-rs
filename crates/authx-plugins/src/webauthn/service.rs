@@ -31,7 +31,7 @@ enum PendingCeremony {
     Authentication {
         user_id: Uuid,
         state: PasskeyAuthentication,
-        passkey: Passkey,
+        passkey: Box<Passkey>,
         expires_at: Instant,
     },
 }
@@ -320,7 +320,7 @@ where
             PendingCeremony::Authentication {
                 user_id,
                 state,
-                passkey,
+                passkey: Box::new(passkey),
                 expires_at: Instant::now() + self.challenge_ttl,
             },
         );
@@ -364,7 +364,7 @@ where
                 state,
                 passkey,
                 expires_at,
-            } if expires_at >= Instant::now() => Ok((user_id, state, passkey)),
+            } if expires_at >= Instant::now() => Ok((user_id, state, *passkey)),
             _ => Err(AuthError::InvalidToken),
         }
     }

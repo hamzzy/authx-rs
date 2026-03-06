@@ -1,0 +1,26 @@
+{
+  "name": "@authx/sdk",
+  "version": "0.0.0-dev",
+  "description": "TypeScript SDK for authx-rs OIDC and session endpoints",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "src",
+    "README.md",
+    "tsconfig.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "keywords": [
+    "authx",
+    "oidc",
+    "oauth2",
+    "pkce",
+    "typescript"
+  ],
+  "license": "MIT"
+}
