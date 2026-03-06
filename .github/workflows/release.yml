@@ -55,7 +55,7 @@ jobs:
       - name: Build docs site
         working-directory: docs
         run: |
-          npm install
+          npm ci
           npm run build
 
   test:
