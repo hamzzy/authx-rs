@@ -64,6 +64,9 @@ examples/
   actix-app/        # Direct actix-web integration demo
 packages/
   authx-sdk-ts/     # Initial TypeScript SDK scaffold
+  authx-sdk-web/    # Browser token storage and refresh orchestration
+  authx-sdk-react/  # React bindings for authx token clients
+  authx-sdk-vue/    # Vue bindings for authx token clients
 ```
 
 ---

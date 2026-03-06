@@ -1,4 +1,4 @@
-import { AuthxSdkError } from "./errors";
+import { AuthxSdkError } from "./errors.js";
 
 export interface PkcePair {
   codeVerifier: string;

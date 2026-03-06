@@ -1,7 +1,7 @@
 {
-  "name": "@authx/sdk",
+  "name": "@authx/sdk-vue",
   "version": "0.1.0",
-  "description": "TypeScript ESM SDK for authx-rs OIDC, JWKS, device, and session endpoints",
+  "description": "Vue bindings for authx-rs token clients",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/esm/index.js",
@@ -25,6 +25,10 @@
     "prepack": "npm run build && npm test",
     "pack:check": "npm pack --dry-run --cache /tmp/authx-npm-cache"
   },
+  "peerDependencies": {
+    "@authx/sdk-web": "^0.1.0",
+    "vue": "^3.3.0 || ^3.4.0 || ^3.5.0"
+  },
   "engines": {
     "node": ">=18",
     "npm": ">=9"
@@ -34,22 +38,24 @@
   },
   "keywords": [
     "authx",
-    "oidc",
+    "vue",
     "oauth2",
-    "pkce",
-    "typescript"
+    "oidc"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hamzzy/authx-rs.git",
-    "directory": "packages/authx-sdk-ts"
+    "directory": "packages/authx-sdk-vue"
   },
   "homepage": "https://github.com/hamzzy/authx-rs",
   "bugs": {
     "url": "https://github.com/hamzzy/authx-rs/issues"
   },
   "devDependencies": {
+    "@authx/sdk-web": "file:../authx-sdk-web",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^26.1.0",
     "typescript": "^5.9.3"
   }
 }

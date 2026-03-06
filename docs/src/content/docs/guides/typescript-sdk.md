@@ -70,7 +70,8 @@ const session = await auth.session();
 
 - no published npm package yet
 - no generated API docs yet
-- no framework-specific React/Vue wrappers yet
-- no build/test pipeline in this repo for the package yet
+- React bindings now live in `packages/authx-sdk-react/`
+- Vue bindings now live in `packages/authx-sdk-vue/`
+- higher-level token storage and refresh orchestration now live in `packages/authx-sdk-web/`
 
 This is a starting point for the roadmap item, not the finished SDK.

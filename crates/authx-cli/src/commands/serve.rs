@@ -70,6 +70,20 @@ pub struct ServeArgs {
     webauthn_challenge_ttl_secs: u64,
 }
 
+#[derive(Clone)]
+struct AppBuildOptions<'a, S> {
+    session_store: S,
+    auth_store: S,
+    origins: &'a [String],
+    session_ttl_secs: i64,
+    secure_cookies: bool,
+    lockout: LockoutConfig,
+    rate_limit: u32,
+    webauthn_rp_id: &'a str,
+    webauthn_rp_origin: &'a str,
+    webauthn_challenge_ttl_secs: u64,
+}
+
 fn validate_args(args: &ServeArgs) -> Result<()> {
     if args.bind.is_empty() {
         anyhow::bail!("AUTHX_BIND must not be empty");
@@ -148,64 +162,67 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         PostgresStore::migrate(&store.pool).await?;
         tracing::info!("migrations applied");
 
-        let app = make_app(
-            store.clone(),
-            store,
-            &cfg.trusted_origins,
-            cfg.session_ttl_secs as u64,
-            cfg.secure_cookies,
+        let app = make_app(AppBuildOptions {
+            session_store: store.clone(),
+            auth_store: store,
+            origins: &cfg.trusted_origins,
+            session_ttl_secs: cfg.session_ttl_secs,
+            secure_cookies: cfg.secure_cookies,
             lockout,
-            cfg.rate_limit_max,
-            &cfg.webauthn_rp_id,
-            &cfg.webauthn_rp_origin,
-            cfg.webauthn_challenge_ttl_secs,
-        )?;
+            rate_limit: cfg.rate_limit_max,
+            webauthn_rp_id: &cfg.webauthn_rp_id,
+            webauthn_rp_origin: &cfg.webauthn_rp_origin,
+            webauthn_challenge_ttl_secs: cfg.webauthn_challenge_ttl_secs,
+        })?;
         return listen(app, &cfg.bind).await;
     }
 
     tracing::warn!("no DATABASE_URL — using in-memory store (data is not persisted)");
     let store = MemoryStore::new();
-    let app = make_app(
-        store.clone(),
-        store,
-        &cfg.trusted_origins,
-        cfg.session_ttl_secs as u64,
-        cfg.secure_cookies,
+    let app = make_app(AppBuildOptions {
+        session_store: store.clone(),
+        auth_store: store,
+        origins: &cfg.trusted_origins,
+        session_ttl_secs: cfg.session_ttl_secs,
+        secure_cookies: cfg.secure_cookies,
         lockout,
-        cfg.rate_limit_max,
-        &cfg.webauthn_rp_id,
-        &cfg.webauthn_rp_origin,
-        cfg.webauthn_challenge_ttl_secs,
-    )?;
+        rate_limit: cfg.rate_limit_max,
+        webauthn_rp_id: &cfg.webauthn_rp_id,
+        webauthn_rp_origin: &cfg.webauthn_rp_origin,
+        webauthn_challenge_ttl_secs: cfg.webauthn_challenge_ttl_secs,
+    })?;
     listen(app, &cfg.bind).await
 }
 
-fn make_app<S>(
-    session_store: S,
-    auth_store: S,
-    origins: &[String],
-    session_ttl: u64,
-    secure: bool,
-    lockout: LockoutConfig,
-    rate_limit: u32,
-    webauthn_rp_id: &str,
-    webauthn_rp_origin: &str,
-    webauthn_challenge_ttl_secs: u64,
-) -> Result<Router>
+fn make_app<S>(options: AppBuildOptions<'_, S>) -> Result<Router>
 where
     S: authx_storage::StorageAdapter + Clone + Send + Sync + 'static,
 {
     use axum::middleware;
 
+    let AppBuildOptions {
+        session_store,
+        auth_store,
+        origins,
+        session_ttl_secs,
+        secure_cookies,
+        lockout,
+        rate_limit,
+        webauthn_rp_id,
+        webauthn_rp_origin,
+        webauthn_challenge_ttl_secs,
+    } = options;
+
     let csrf = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
     let rl_layer = RateLimitLayer::new(RateLimitConfig::new(rate_limit, Duration::from_secs(60)));
-    let state = AuthxState::new_with_lockout(auth_store, session_ttl as i64, secure, lockout);
+    let state =
+        AuthxState::new_with_lockout(auth_store, session_ttl_secs, secure_cookies, lockout);
     let webauthn_service = Arc::new(WebAuthnService::new(
         session_store.clone(),
         webauthn_rp_id.to_owned(),
         webauthn_rp_origin.to_owned(),
         Duration::from_secs(webauthn_challenge_ttl_secs),
-        session_ttl as i64,
+        session_ttl_secs,
     )?);
 
     let auth_router = state

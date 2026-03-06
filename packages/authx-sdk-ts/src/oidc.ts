@@ -1,4 +1,4 @@
-import { requestJson } from "./http";
+import { requestJson } from "./http.js";
 
 export interface OidcDiscoveryDocument {
   issuer: string;

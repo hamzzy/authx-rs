@@ -1,4 +1,5 @@
-import { AuthxErrorBody, AuthxSdkError, toAuthxSdkError } from "./errors";
+import type { AuthxErrorBody } from "./errors.js";
+import { AuthxSdkError, toAuthxSdkError } from "./errors.js";
 
 export interface RequestOptions extends RequestInit {
   baseUrl?: string;

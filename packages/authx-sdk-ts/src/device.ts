@@ -1,5 +1,5 @@
-import { requestJson } from "./http";
-import { OidcTokenResponse } from "./oidc";
+import { requestJson } from "./http.js";
+import type { OidcTokenResponse } from "./oidc.js";
 
 export interface DeviceAuthorizationResponse {
   device_code: string;

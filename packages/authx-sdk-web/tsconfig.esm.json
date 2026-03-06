@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "ES2022",
     "moduleResolution": "Bundler",
-    "noEmit": true
+    "outDir": "./dist/esm",
+    "noEmit": false
   }
 }

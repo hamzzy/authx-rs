@@ -1,7 +1,7 @@
 {
-  "name": "@authx/sdk",
+  "name": "@authx/sdk-web",
   "version": "0.1.0",
-  "description": "TypeScript ESM SDK for authx-rs OIDC, JWKS, device, and session endpoints",
+  "description": "Browser token storage and refresh orchestration for authx-rs",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/esm/index.js",
@@ -34,16 +34,16 @@
   },
   "keywords": [
     "authx",
-    "oidc",
     "oauth2",
-    "pkce",
+    "oidc",
+    "token",
     "typescript"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hamzzy/authx-rs.git",
-    "directory": "packages/authx-sdk-ts"
+    "directory": "packages/authx-sdk-web"
   },
   "homepage": "https://github.com/hamzzy/authx-rs",
   "bugs": {
