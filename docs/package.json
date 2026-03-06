@@ -12,13 +12,11 @@
     "deploy": "pnpm run build && wrangler deploy",
     "cf-typegen": "wrangler types"
   },
-  "dependencies": {
+  "devDependencies": {
     "@astrojs/cloudflare": "^12.6.12",
     "@astrojs/starlight": "^0.37.6",
     "astro": "^5.6.1",
-    "sharp": "^0.34.2"
-  },
-  "devDependencies": {
+    "sharp": "^0.34.2",
     "wrangler": "^4.69.0"
   }
 }
