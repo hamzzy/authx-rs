@@ -69,6 +69,7 @@ fn credential_kind_str(k: &CredentialKind) -> &'static str {
     match k {
         CredentialKind::Password => "password",
         CredentialKind::Passkey => "passkey",
+        CredentialKind::Webauthn => "webauthn",
         CredentialKind::OauthToken => "oauth_token",
     }
 }
@@ -76,6 +77,7 @@ fn credential_kind_str(k: &CredentialKind) -> &'static str {
 fn credential_kind_from_str(s: &str) -> CredentialKind {
     match s {
         "passkey" => CredentialKind::Passkey,
+        "webauthn" => CredentialKind::Webauthn,
         "oauth_token" => CredentialKind::OauthToken,
         _ => CredentialKind::Password,
     }

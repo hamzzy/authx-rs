@@ -6,6 +6,7 @@ use uuid::Uuid;
 pub enum CredentialKind {
     Password,
     Passkey,
+    Webauthn,
     OauthToken,
 }
 

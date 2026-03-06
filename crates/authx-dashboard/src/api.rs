@@ -112,7 +112,7 @@ where
         .route("/oidc/federation", post(create_oidc_federation::<S>))
         .route(
             "/oidc/federation/test-connection",
-            post(test_federation_connection::<S>),
+            post(test_federation_connection),
         )
         // Device codes
         .route("/oidc/device-codes", get(list_device_codes::<S>))
@@ -501,20 +501,7 @@ struct TestConnectionResult {
     error: Option<String>,
 }
 
-async fn test_federation_connection<S>(Json(body): Json<TestConnectionBody>) -> impl IntoResponse
-where
-    S: UserRepository
-        + SessionRepository
-        + OrgRepository
-        + AuditLogRepository
-        + OidcClientRepository
-        + OidcFederationProviderRepository
-        + DeviceCodeRepository
-        + Clone
-        + Send
-        + Sync
-        + 'static,
-{
+async fn test_federation_connection(Json(body): Json<TestConnectionBody>) -> impl IntoResponse {
     let discovery_url = format!(
         "{}/.well-known/openid-configuration",
         body.issuer.trim_end_matches('/')

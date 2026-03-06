@@ -67,6 +67,12 @@ AUTHX_ENCRYPTION_KEY={key_hex}
 # AUTHX_OIDC_REFRESH_TOKEN_TTL=2592000
 # AUTHX_OIDC_DEVICE_CODE_TTL=600
 # AUTHX_OIDC_VERIFICATION_URI=http://localhost:3000/oidc/device
+
+# WebAuthn / Passkeys
+# Use your effective domain in production (e.g. auth.example.com).
+AUTHX_WEBAUTHN_RP_ID=localhost
+AUTHX_WEBAUTHN_RP_ORIGIN=http://localhost:3000
+AUTHX_WEBAUTHN_CHALLENGE_TTL=600
 "#
     );
 

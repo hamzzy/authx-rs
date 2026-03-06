@@ -32,6 +32,7 @@ tracing.workspace       = true
 thiserror.workspace     = true
 cookie.workspace        = true
 authx-plugins.workspace = true
+webauthn-rs.workspace   = true
 
 [dev-dependencies]
 tokio.workspace         = true

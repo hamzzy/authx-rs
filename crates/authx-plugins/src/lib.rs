@@ -14,6 +14,7 @@ pub mod organization;
 pub mod password_reset;
 pub mod totp;
 pub mod username;
+pub mod webauthn;
 
 pub use admin::{AdminService, BanStatus};
 pub use anonymous::{AnonymousService, GuestSession};
@@ -34,6 +35,10 @@ pub use organization::{InviteDetails, OrgService};
 pub use password_reset::PasswordResetService;
 pub use totp::{TotpService, TotpSetup};
 pub use username::{UsernameAuthResponse, UsernameService};
+pub use webauthn::{
+    FinishAuthenticationRequest, FinishRegistrationRequest, WebAuthnAuthenticationResult,
+    WebAuthnBeginResponse, WebAuthnRegistrationResult, WebAuthnService,
+};
 
 #[cfg(feature = "redis-tokens")]
 pub mod redis_token_store;

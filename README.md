@@ -331,8 +331,10 @@ cargo test --workspace
 - [ ] OAuth2 Provider — act as an authorization server
 - [ ] SSO / OIDC federation — sign in via Okta, Azure AD, Google Workspace
 - [ ] Device Authorization Grant (RFC 8628)
-- [ ] SAML 2.0 — enterprise IdP integration
-- [ ] SCIM 2.0 — user and group provisioning
-- [ ] WebAuthn / Passkey plugin
 - [ ] Redis-backed rate limiting and token store
 - [ ] Organization invitation flow
+
+### v0.3+ (enterprise protocol expansion, after core stabilization)
+- [ ] WebAuthn / Passkey plugin
+- [ ] SAML 2.0 — enterprise IdP integration with signed assertions + metadata
+- [ ] SCIM 2.0 — user and group provisioning with mapping + complete audit logs

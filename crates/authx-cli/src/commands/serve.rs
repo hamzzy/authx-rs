@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -6,10 +7,12 @@ use clap::Args;
 use tower_http::trace::TraceLayer;
 
 use authx_axum::{
-    csrf_middleware, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer, SessionLayer,
+    csrf_middleware, webauthn_router, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer,
+    SessionLayer,
 };
 use authx_core::brute_force::LockoutConfig;
 use authx_core::config::AuthxConfig;
+use authx_plugins::WebAuthnService;
 use authx_storage::{memory::MemoryStore, sqlx::PostgresStore};
 
 #[derive(Args)]
@@ -49,6 +52,22 @@ pub struct ServeArgs {
     /// Lockout window in minutes.
     #[arg(long, env = "AUTHX_LOCKOUT_MINUTES", default_value_t = 15)]
     lockout_minutes: u64,
+
+    /// WebAuthn relying party ID (typically your domain).
+    #[arg(long, env = "AUTHX_WEBAUTHN_RP_ID", default_value = "localhost")]
+    webauthn_rp_id: String,
+
+    /// WebAuthn allowed origin.
+    #[arg(
+        long,
+        env = "AUTHX_WEBAUTHN_RP_ORIGIN",
+        default_value = "http://localhost:3000"
+    )]
+    webauthn_rp_origin: String,
+
+    /// WebAuthn challenge TTL in seconds.
+    #[arg(long, env = "AUTHX_WEBAUTHN_CHALLENGE_TTL", default_value_t = 600)]
+    webauthn_challenge_ttl_secs: u64,
 }
 
 fn validate_args(args: &ServeArgs) -> Result<()> {
@@ -66,6 +85,15 @@ fn validate_args(args: &ServeArgs) -> Result<()> {
     }
     if args.lockout_minutes == 0 {
         anyhow::bail!("AUTHX_LOCKOUT_MINUTES must be greater than zero");
+    }
+    if args.webauthn_rp_id.trim().is_empty() {
+        anyhow::bail!("AUTHX_WEBAUTHN_RP_ID must not be empty");
+    }
+    if args.webauthn_rp_origin.trim().is_empty() {
+        anyhow::bail!("AUTHX_WEBAUTHN_RP_ORIGIN must not be empty");
+    }
+    if args.webauthn_challenge_ttl_secs == 0 {
+        anyhow::bail!("AUTHX_WEBAUTHN_CHALLENGE_TTL must be greater than zero");
     }
     let origins_valid = args
         .trusted_origins
@@ -93,6 +121,9 @@ impl From<&ServeArgs> for AuthxConfig {
             rate_limit_window: Duration::from_secs(60),
             lockout_max_failures: args.lockout_failures,
             lockout_window: Duration::from_secs(args.lockout_minutes * 60),
+            webauthn_rp_id: args.webauthn_rp_id.clone(),
+            webauthn_rp_origin: args.webauthn_rp_origin.clone(),
+            webauthn_challenge_ttl_secs: args.webauthn_challenge_ttl_secs,
             ..AuthxConfig::default()
         }
     }
@@ -125,7 +156,10 @@ pub async fn run(args: ServeArgs) -> Result<()> {
             cfg.secure_cookies,
             lockout,
             cfg.rate_limit_max,
-        );
+            &cfg.webauthn_rp_id,
+            &cfg.webauthn_rp_origin,
+            cfg.webauthn_challenge_ttl_secs,
+        )?;
         return listen(app, &cfg.bind).await;
     }
 
@@ -139,7 +173,10 @@ pub async fn run(args: ServeArgs) -> Result<()> {
         cfg.secure_cookies,
         lockout,
         cfg.rate_limit_max,
-    );
+        &cfg.webauthn_rp_id,
+        &cfg.webauthn_rp_origin,
+        cfg.webauthn_challenge_ttl_secs,
+    )?;
     listen(app, &cfg.bind).await
 }
 
@@ -151,7 +188,10 @@ fn make_app<S>(
     secure: bool,
     lockout: LockoutConfig,
     rate_limit: u32,
-) -> Router
+    webauthn_rp_id: &str,
+    webauthn_rp_origin: &str,
+    webauthn_challenge_ttl_secs: u64,
+) -> Result<Router>
 where
     S: authx_storage::StorageAdapter + Clone + Send + Sync + 'static,
 {
@@ -160,17 +200,35 @@ where
     let csrf = CsrfConfig::new(origins.iter().map(|s| s.as_str()));
     let rl_layer = RateLimitLayer::new(RateLimitConfig::new(rate_limit, Duration::from_secs(60)));
     let state = AuthxState::new_with_lockout(auth_store, session_ttl as i64, secure, lockout);
+    let webauthn_service = Arc::new(WebAuthnService::new(
+        session_store.clone(),
+        webauthn_rp_id.to_owned(),
+        webauthn_rp_origin.to_owned(),
+        Duration::from_secs(webauthn_challenge_ttl_secs),
+        session_ttl as i64,
+    )?);
 
     let auth_router = state
         .router()
         .layer(rl_layer)
         .route_layer(middleware::from_fn_with_state(csrf, csrf_middleware));
 
-    Router::new()
+    let webauthn = webauthn_router(webauthn_service)
+        .layer(RateLimitLayer::new(RateLimitConfig::new(
+            rate_limit,
+            Duration::from_secs(60),
+        )))
+        .route_layer(middleware::from_fn_with_state(
+            CsrfConfig::new(origins.iter().map(|s| s.as_str())),
+            csrf_middleware,
+        ));
+
+    Ok(Router::new()
         .route("/health", get(health))
         .nest("/auth", auth_router)
+        .nest("/auth/webauthn", webauthn)
         .layer(SessionLayer::new(session_store))
-        .layer(TraceLayer::new_for_http())
+        .layer(TraceLayer::new_for_http()))
 }
 
 async fn listen(app: Router, bind: &str) -> Result<()> {

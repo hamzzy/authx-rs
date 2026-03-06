@@ -62,6 +62,14 @@ pub struct AuthxConfig {
     pub oidc_device_code_interval_secs: u32,
     /// Verification URI for device flow.
     pub oidc_verification_uri: Option<String>,
+
+    // ── WebAuthn / Passkeys ────────────────────────────────────
+    /// Relying party ID (RP ID), usually the effective domain.
+    pub webauthn_rp_id: String,
+    /// Allowed origin for WebAuthn ceremonies.
+    pub webauthn_rp_origin: String,
+    /// Challenge TTL in seconds for begin/finish ceremony pairing.
+    pub webauthn_challenge_ttl_secs: u64,
 }
 
 impl Default for AuthxConfig {
@@ -91,6 +99,10 @@ impl Default for AuthxConfig {
             oidc_device_code_ttl_secs: 600,
             oidc_device_code_interval_secs: 5,
             oidc_verification_uri: None,
+
+            webauthn_rp_id: "localhost".into(),
+            webauthn_rp_origin: "http://localhost:3000".into(),
+            webauthn_challenge_ttl_secs: 600,
         }
     }
 }
@@ -114,6 +126,9 @@ impl AuthxConfig {
     /// | `encryption_key_hex`  | `AUTHX_ENCRYPTION_KEY`             |
     /// | `oidc_issuer`         | `AUTHX_OIDC_ISSUER`                |
     /// | `oidc_*_ttl_secs`     | `AUTHX_OIDC_ACCESS_TOKEN_TTL` etc. |
+    /// | `webauthn_rp_id`      | `AUTHX_WEBAUTHN_RP_ID`             |
+    /// | `webauthn_rp_origin`  | `AUTHX_WEBAUTHN_RP_ORIGIN`         |
+    /// | `webauthn_challenge_ttl_secs` | `AUTHX_WEBAUTHN_CHALLENGE_TTL` |
     pub fn from_env() -> Self {
         let defaults = Self::default();
 
@@ -173,6 +188,12 @@ impl AuthxConfig {
             oidc_verification_uri: std::env::var("AUTHX_OIDC_VERIFICATION_URI")
                 .ok()
                 .or(defaults.oidc_verification_uri),
+            webauthn_rp_id: env_or("AUTHX_WEBAUTHN_RP_ID", defaults.webauthn_rp_id),
+            webauthn_rp_origin: env_or("AUTHX_WEBAUTHN_RP_ORIGIN", defaults.webauthn_rp_origin),
+            webauthn_challenge_ttl_secs: env_parse(
+                "AUTHX_WEBAUTHN_CHALLENGE_TTL",
+                defaults.webauthn_challenge_ttl_secs,
+            ),
         }
     }
 
@@ -217,6 +238,7 @@ mod tests {
         assert_eq!(cfg.lockout_max_failures, 5);
         assert_eq!(cfg.rate_limit_max, 30);
         assert_eq!(cfg.oidc_access_token_ttl_secs, 3600);
+        assert_eq!(cfg.webauthn_challenge_ttl_secs, 600);
     }
 
     #[test]

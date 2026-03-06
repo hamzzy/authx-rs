@@ -39,6 +39,7 @@ email_address.workspace = true
 subtle.workspace        = true
 pkcs8.workspace         = true
 ed25519-dalek.workspace  = true
+webauthn-rs.workspace    = true
 
 [dev-dependencies]
 tokio.workspace = true
