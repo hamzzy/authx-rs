@@ -1,5 +1,5 @@
 {
-  "name": "@authx/sdk",
+  "name": "@authx-rs/sdk",
   "version": "0.1.0",
   "description": "TypeScript ESM SDK for authx-rs OIDC, JWKS, device, and session endpoints",
   "type": "module",

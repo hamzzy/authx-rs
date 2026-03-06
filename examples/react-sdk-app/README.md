@@ -4,9 +4,9 @@ Minimal React consumer example for the authx TypeScript SDK packages.
 
 It demonstrates:
 
-- `@authx/sdk` for OIDC discovery, PKCE, and code exchange
-- `@authx/sdk-web` for browser token storage and refresh orchestration
-- `@authx/sdk-react` for provider/hooks integration
+- `@authx-rs/sdk` for OIDC discovery, PKCE, and code exchange
+- `@authx-rs/sdk-web` for browser token storage and refresh orchestration
+- `@authx-rs/sdk-react` for provider/hooks integration
 
 ## Run
 

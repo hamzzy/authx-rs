@@ -1,6 +1,6 @@
 ---
-title: "@authx/sdk-react"
-description: "Generated API reference for @authx/sdk-react."
+title: "@authx-rs/sdk-react"
+description: "Generated API reference for @authx-rs/sdk-react."
 ---
 
 Generated from `packages/authx-sdk-react/dist/types`.

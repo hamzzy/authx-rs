@@ -14,7 +14,7 @@ import type {
   AuthxTokenManager,
   OidcTokenResponse,
   StoredTokenState,
-} from "@authx/sdk-web";
+} from "@authx-rs/sdk-web";
 
 export interface AuthxTokenProviderProps {
   client: AuthxTokenManager;

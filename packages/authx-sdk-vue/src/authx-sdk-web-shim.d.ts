@@ -1,4 +1,4 @@
-declare module "@authx/sdk-web" {
+declare module "@authx-rs/sdk-web" {
   export interface StoredTokenState {
     accessToken: string;
     tokenType: string;

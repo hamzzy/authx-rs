@@ -1,6 +1,6 @@
 ---
-title: "@authx/sdk"
-description: "Generated API reference for @authx/sdk."
+title: "@authx-rs/sdk"
+description: "Generated API reference for @authx-rs/sdk."
 ---
 
 Generated from `packages/authx-sdk-ts/dist/types`.

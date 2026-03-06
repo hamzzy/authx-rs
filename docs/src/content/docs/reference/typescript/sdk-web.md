@@ -1,6 +1,6 @@
 ---
-title: "@authx/sdk-web"
-description: "Generated API reference for @authx/sdk-web."
+title: "@authx-rs/sdk-web"
+description: "Generated API reference for @authx-rs/sdk-web."
 ---
 
 Generated from `packages/authx-sdk-web/dist/types`.

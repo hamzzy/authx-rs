@@ -1,5 +1,5 @@
 {
-  "name": "@authx/sdk-web",
+  "name": "@authx-rs/sdk-web",
   "version": "0.1.0",
   "description": "Browser token storage and refresh orchestration for authx-rs",
   "type": "module",

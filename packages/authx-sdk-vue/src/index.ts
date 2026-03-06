@@ -14,7 +14,7 @@ import type {
   AuthxTokenSnapshot,
   OidcTokenResponse,
   StoredTokenState,
-} from "@authx/sdk-web";
+} from "@authx-rs/sdk-web";
 
 export interface AuthxVuePlugin {
   install(app: App): void;

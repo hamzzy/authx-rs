@@ -16,25 +16,25 @@ const outputDir = path.join(
 
 const packages = [
   {
-    name: "@authx/sdk",
+    name: "@authx-rs/sdk",
     slug: "sdk",
     packageDir: path.join(repoRoot, "packages", "authx-sdk-ts"),
     summary: "Low-level OIDC, JWKS, PKCE, device, and browser-session helpers.",
   },
   {
-    name: "@authx/sdk-web",
+    name: "@authx-rs/sdk-web",
     slug: "sdk-web",
     packageDir: path.join(repoRoot, "packages", "authx-sdk-web"),
     summary: "Browser token storage, authenticated fetch, and refresh orchestration.",
   },
   {
-    name: "@authx/sdk-react",
+    name: "@authx-rs/sdk-react",
     slug: "sdk-react",
     packageDir: path.join(repoRoot, "packages", "authx-sdk-react"),
     summary: "React provider and hooks for authx token clients.",
   },
   {
-    name: "@authx/sdk-vue",
+    name: "@authx-rs/sdk-vue",
     slug: "sdk-vue",
     packageDir: path.join(repoRoot, "packages", "authx-sdk-vue"),
     summary: "Vue plugin and composable for authx token clients.",

@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@authx/sdk": "file:../../packages/authx-sdk-ts",
-    "@authx/sdk-react": "file:../../packages/authx-sdk-react",
-    "@authx/sdk-web": "file:../../packages/authx-sdk-web",
+    "@authx-rs/sdk": "file:../../packages/authx-sdk-ts",
+    "@authx-rs/sdk-react": "file:../../packages/authx-sdk-react",
+    "@authx-rs/sdk-web": "file:../../packages/authx-sdk-web",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

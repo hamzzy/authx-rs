@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 
-import { createAuthxPlugin } from "@authx/sdk-vue";
+import { createAuthxPlugin } from "@authx-rs/sdk-vue";
 
 import App from "./App.vue";
 import { tokenManager } from "./auth";

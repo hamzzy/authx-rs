@@ -4,12 +4,12 @@ import {
   discoverIssuer,
   exchangeAuthorizationCode,
   randomState,
-} from "@authx/sdk";
+} from "@authx-rs/sdk";
 import {
   AuthxTokenManager,
   BrowserStorageTokenStore,
   createOidcTokenRefresher,
-} from "@authx/sdk-web";
+} from "@authx-rs/sdk-web";
 
 const STORAGE_KEY = "authx.vue.example";
 const STATE_KEY = `${STORAGE_KEY}.state`;

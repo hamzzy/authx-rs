@@ -1,4 +1,4 @@
-# @authx/sdk
+# @authx-rs/sdk
 
 TypeScript SDK for `authx-rs`.
 
@@ -16,9 +16,9 @@ Current scope:
 Non-goals in this package:
 
 - no CommonJS build; the package is ESM-only
-- higher-level token storage and auto-refresh orchestration live in `@authx/sdk-web`
-- React integration helpers live in `@authx/sdk-react`
-- Vue integration helpers live in `@authx/sdk-vue`
+- higher-level token storage and auto-refresh orchestration live in `@authx-rs/sdk-web`
+- React integration helpers live in `@authx-rs/sdk-react`
+- Vue integration helpers live in `@authx-rs/sdk-vue`
 
 The package is intentionally dependency-free and expects modern runtimes with `fetch` and Web Crypto support.
 

@@ -5,10 +5,10 @@ description: Maintainer guide for versioning and publishing the authx TypeScript
 
 This guide documents the exact maintainer flow for the TypeScript SDK line:
 
-- `@authx/sdk`
-- `@authx/sdk-web`
-- `@authx/sdk-react`
-- `@authx/sdk-vue`
+- `@authx-rs/sdk`
+- `@authx-rs/sdk-web`
+- `@authx-rs/sdk-react`
+- `@authx-rs/sdk-vue`
 
 The repository now uses a two-stage process:
 
@@ -92,14 +92,14 @@ For the first publish specifically:
 1. Confirm the four package names on npm.
 2. Confirm `publishConfig.access` is `public` for scoped packages.
 3. Confirm `repository`, `homepage`, and `bugs` fields point at this repo.
-4. Confirm `npm view @authx/sdk version` and the other three names do not already contain the target version.
+4. Confirm `npm view @authx-rs/sdk version` and the other three names do not already contain the target version.
 5. Merge the Changesets version PR.
 6. Push the matching `vX.Y.Z` tag.
 7. Confirm the workflow publishes:
-   - `@authx/sdk`
-   - `@authx/sdk-web`
-   - `@authx/sdk-react`
-   - `@authx/sdk-vue`
+   - `@authx-rs/sdk`
+   - `@authx-rs/sdk-web`
+   - `@authx-rs/sdk-react`
+   - `@authx-rs/sdk-vue`
 
 ## Notes
 

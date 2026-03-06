@@ -1,5 +1,5 @@
 {
-  "name": "@authx/sdk-react",
+  "name": "@authx-rs/sdk-react",
   "version": "0.1.0",
   "description": "React bindings for authx-rs token clients",
   "type": "module",
@@ -26,7 +26,7 @@
     "pack:check": "npm pack --dry-run --cache /tmp/authx-npm-cache"
   },
   "peerDependencies": {
-    "@authx/sdk-web": "^0.1.0",
+    "@authx-rs/sdk-web": "^0.1.0",
     "react": "^18.0.0 || ^19.0.0"
   },
   "engines": {
@@ -53,7 +53,7 @@
     "url": "https://github.com/hamzzy/authx-rs/issues"
   },
   "devDependencies": {
-    "@authx/sdk-web": "file:../authx-sdk-web",
+    "@authx-rs/sdk-web": "file:../authx-sdk-web",
     "@testing-library/react": "^16.3.0",
     "jsdom": "^26.1.0",
     "react": "^19.1.1",

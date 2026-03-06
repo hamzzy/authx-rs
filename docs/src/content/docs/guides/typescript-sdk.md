@@ -7,8 +7,8 @@ The repository now contains a layered TypeScript SDK family under `packages/`:
 
 - `packages/authx-sdk-ts/` for low-level OIDC, JWKS, PKCE, device, and browser-session helpers
 - `packages/authx-sdk-web/` for browser token storage and auto-refresh orchestration
-- `packages/authx-sdk-react/` for React provider/hooks on top of `@authx/sdk-web`
-- `packages/authx-sdk-vue/` for Vue plugin/composable on top of `@authx/sdk-web`
+- `packages/authx-sdk-react/` for React provider/hooks on top of `@authx-rs/sdk-web`
+- `packages/authx-sdk-vue/` for Vue plugin/composable on top of `@authx-rs/sdk-web`
 
 Consumer examples now live in:
 
@@ -25,7 +25,7 @@ The low-level package is dependency-free and targets modern runtimes with:
 
 ## Package split
 
-### `@authx/sdk`
+### `@authx-rs/sdk`
 
 - OIDC discovery
 - JWKS fetch and key selection helpers
@@ -42,7 +42,7 @@ The low-level package is dependency-free and targets modern runtimes with:
 
 This package is ESM-only and intentionally stays at the protocol/helper layer.
 
-### `@authx/sdk-web`
+### `@authx-rs/sdk-web`
 
 - token persistence with pluggable storage
 - access-token expiry tracking
@@ -51,7 +51,7 @@ This package is ESM-only and intentionally stays at the protocol/helper layer.
 - optional retry after `401`
 - OIDC refresh helper for standard token endpoints
 
-### `@authx/sdk-react`
+### `@authx-rs/sdk-react`
 
 - `AuthxTokenProvider`
 - `useAuthxToken`
@@ -60,7 +60,7 @@ This package is ESM-only and intentionally stays at the protocol/helper layer.
 - `useIsAuthenticated`
 - `useAuthenticatedFetch`
 
-### `@authx/sdk-vue`
+### `@authx-rs/sdk-vue`
 
 - `createAuthxPlugin`
 - `useAuthxToken`
@@ -74,7 +74,7 @@ import {
   createPkcePair,
   discoverIssuer,
   randomState,
-} from "@authx/sdk";
+} from "@authx-rs/sdk";
 
 const discovery = await discoverIssuer("https://auth.example.com/oidc");
 const pkce = await createPkcePair();
@@ -93,7 +93,7 @@ const authorizationUrl = buildAuthorizationUrl({
 ## Browser session helper example
 
 ```ts
-import { BrowserSessionClient } from "@authx/sdk";
+import { BrowserSessionClient } from "@authx-rs/sdk";
 
 const auth = new BrowserSessionClient({
   baseUrl: "https://api.example.com",
@@ -114,7 +114,7 @@ import {
   AuthxTokenManager,
   BrowserStorageTokenStore,
   createOidcTokenRefresher,
-} from "@authx/sdk-web";
+} from "@authx-rs/sdk-web";
 
 const tokens = new AuthxTokenManager({
   storage: new BrowserStorageTokenStore(),
@@ -130,7 +130,7 @@ await tokens.start();
 ## React example
 
 ```tsx
-import { AuthxTokenProvider, useIsAuthenticated } from "@authx/sdk-react";
+import { AuthxTokenProvider, useIsAuthenticated } from "@authx-rs/sdk-react";
 
 function AuthState() {
   const isAuthenticated = useIsAuthenticated();
@@ -145,7 +145,7 @@ function AuthState() {
 ## Vue example
 
 ```ts
-import { createAuthxPlugin, useAuthxToken } from "@authx/sdk-vue";
+import { createAuthxPlugin, useAuthxToken } from "@authx-rs/sdk-vue";
 
 app.use(createAuthxPlugin(tokens));
 
@@ -155,10 +155,10 @@ console.log(auth.isAuthenticated.value);
 
 ## Verification and current limitations
 
-- `@authx/sdk`, `@authx/sdk-web`, `@authx/sdk-react`, and `@authx/sdk-vue` all build in this repo
-- `@authx/sdk-web` has runtime tests for token refresh and storage behavior
-- `@authx/sdk-react` has runtime tests against a real React runtime
-- `@authx/sdk-vue` has runtime tests against a real Vue runtime
+- `@authx-rs/sdk`, `@authx-rs/sdk-web`, `@authx-rs/sdk-react`, and `@authx-rs/sdk-vue` all build in this repo
+- `@authx-rs/sdk-web` has runtime tests for token refresh and storage behavior
+- `@authx-rs/sdk-react` has runtime tests against a real React runtime
+- `@authx-rs/sdk-vue` has runtime tests against a real Vue runtime
 - generated API reference lives under `/reference/typescript/`
 - tag-driven npm publishing is configured in `.github/workflows/release.yml`
 - JS version PRs are prepared by `.github/workflows/js-versioning.yml`

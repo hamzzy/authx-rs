@@ -5,7 +5,7 @@ import {
   useAccessToken,
   useAuthenticatedFetch,
   useIsAuthenticated,
-} from "@authx/sdk-react";
+} from "@authx-rs/sdk-react";
 
 import { completeLoginFromCallback, startLogin, tokenManager } from "./auth";
 
@@ -19,8 +19,8 @@ function AuthPanel() {
     <main style={{ fontFamily: "ui-sans-serif, system-ui", margin: "3rem auto", maxWidth: 720 }}>
       <h1>authx React SDK Example</h1>
       <p>
-        This example uses <code>@authx/sdk</code>, <code>@authx/sdk-web</code>, and
-        <code> @authx/sdk-react</code>.
+        This example uses <code>@authx-rs/sdk</code>, <code>@authx-rs/sdk-web</code>, and
+        <code> @authx-rs/sdk-react</code>.
       </p>
       <p>Status: {isAuthenticated ? "authenticated" : "signed out"}</p>
       <p>Access token: {accessToken ? `${accessToken.slice(0, 16)}...` : "none"}</p>

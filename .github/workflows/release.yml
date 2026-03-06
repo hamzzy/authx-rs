@@ -287,9 +287,14 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Verify npm authentication
+        run: |
+          npm whoami
+
       - name: Publish package if needed
         working-directory: ${{ matrix.package_dir }}
         run: |
+          set -euo pipefail
           NAME=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name")
           VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
           npm ci
@@ -297,7 +302,19 @@ jobs:
             echo "$NAME@$VERSION already published, skipping"
             exit 0
           fi
-          npm publish --provenance --access public
+          PUBLISH_LOG=$(mktemp)
+          if npm publish --provenance --access public >"$PUBLISH_LOG" 2>&1; then
+            cat "$PUBLISH_LOG"
+            exit 0
+          fi
+
+          cat "$PUBLISH_LOG"
+          if grep -q "npm error code E404" "$PUBLISH_LOG"; then
+            SCOPE=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name.split('/')[0]")
+            echo "::error::npm rejected publish for $NAME. This usually means the $SCOPE scope does not exist on npm, or the NPM_TOKEN is not allowed to publish under that scope."
+            echo "::error::Verify the npm scope owner, org membership, token type, and that the GitHub Actions secret contains a publish-capable token."
+          fi
+          exit 1
 
   github-release:
     name: GitHub Release

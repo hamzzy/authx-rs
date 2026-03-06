@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
-import { useAuthxToken } from "@authx/sdk-vue";
+import { useAuthxToken } from "@authx-rs/sdk-vue";
 
 import { completeLoginFromCallback, startLogin, tokenManager } from "./auth";
 
@@ -43,8 +43,8 @@ async function testAuthenticatedFetch() {
     <p v-else-if="error">{{ error }}</p>
     <template v-else>
       <p>
-        This example uses <code>@authx/sdk</code>, <code>@authx/sdk-web</code>, and
-        <code>@authx/sdk-vue</code>.
+        This example uses <code>@authx-rs/sdk</code>, <code>@authx-rs/sdk-web</code>, and
+        <code>@authx-rs/sdk-vue</code>.
       </p>
       <p>Status: {{ auth.isAuthenticated.value ? "authenticated" : "signed out" }}</p>
       <p>

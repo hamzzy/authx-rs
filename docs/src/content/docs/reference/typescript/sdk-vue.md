@@ -1,6 +1,6 @@
 ---
-title: "@authx/sdk-vue"
-description: "Generated API reference for @authx/sdk-vue."
+title: "@authx-rs/sdk-vue"
+description: "Generated API reference for @authx-rs/sdk-vue."
 ---
 
 Generated from `packages/authx-sdk-vue/dist/types`.

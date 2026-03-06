@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@authx/sdk": "file:../../packages/authx-sdk-ts",
-    "@authx/sdk-vue": "file:../../packages/authx-sdk-vue",
-    "@authx/sdk-web": "file:../../packages/authx-sdk-web",
+    "@authx-rs/sdk": "file:../../packages/authx-sdk-ts",
+    "@authx-rs/sdk-vue": "file:../../packages/authx-sdk-vue",
+    "@authx-rs/sdk-web": "file:../../packages/authx-sdk-web",
     "vue": "^3.5.21"
   },
   "devDependencies": {

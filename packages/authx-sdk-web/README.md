@@ -1,4 +1,4 @@
-# @authx/sdk-web
+# @authx-rs/sdk-web
 
 Higher-level browser helpers for `authx-rs` token-based clients.
 
@@ -19,7 +19,7 @@ import {
   AuthxTokenManager,
   BrowserStorageTokenStore,
   createOidcTokenRefresher,
-} from "@authx/sdk-web";
+} from "@authx-rs/sdk-web";
 
 const client = new AuthxTokenManager({
   storage: new BrowserStorageTokenStore(),
