@@ -43,10 +43,12 @@ use authx_axum::{
     csrf_middleware, oidc_provider_router, set_session_cookie, webauthn_router, AuthxState,
     CsrfConfig, OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth, SessionLayer,
 };
-use authx_core::{brute_force::LockoutConfig, events::EventBus};
 use authx_core::models::CreateOidcClient;
 use authx_core::KeyRotationStore;
-use authx_plugins::oidc_provider::{oidc_discovery_document, OidcProviderConfig, OidcProviderService};
+use authx_core::{brute_force::LockoutConfig, events::EventBus};
+use authx_plugins::oidc_provider::{
+    oidc_discovery_document, OidcProviderConfig, OidcProviderService,
+};
 use authx_plugins::{
     AdminService, ApiKeyService, OrgService, TotpService, TotpSetup, WebAuthnService,
 };
@@ -145,8 +147,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL env var required");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL env var required");
 
     let store = PostgresStore::connect(&database_url)
         .await
@@ -301,7 +302,10 @@ async fn main() {
         .route("/api-keys/:id", delete(revoke_api_key))
         .route("/admin/users", get(list_users).post(create_admin_user))
         .route("/admin/users/:id/ban", post(ban_user).delete(unban_user))
-        .route("/admin/users/:id/sessions", get(list_user_sessions).delete(revoke_user_sessions))
+        .route(
+            "/admin/users/:id/sessions",
+            get(list_user_sessions).delete(revoke_user_sessions),
+        )
         .route("/admin/users/:id/impersonate", post(impersonate_user))
         .route("/orgs", post(create_org))
         .route("/orgs/:id", get(get_org))
@@ -418,7 +422,11 @@ async fn list_api_keys(
     RequireAuth(identity): RequireAuth,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<authx_core::models::ApiKey>>, (StatusCode, Json<serde_json::Value>)> {
-    let keys = state.api_keys.list(identity.user.id).await.map_err(internal_error)?;
+    let keys = state
+        .api_keys
+        .list(identity.user.id)
+        .await
+        .map_err(internal_error)?;
     Ok(Json(keys))
 }
 
@@ -432,7 +440,8 @@ async fn create_api_key(
         .api_keys
         .create(
             identity.user.id,
-            body.org_id.or(identity.active_org.as_ref().map(|org| org.id)),
+            body.org_id
+                .or(identity.active_org.as_ref().map(|org| org.id)),
             body.name,
             body.scopes,
             expires_at,
@@ -474,7 +483,11 @@ async fn list_users(
     RequireAuth(_identity): RequireAuth,
     State(state): State<AppState>,
 ) -> Result<Json<Vec<authx_core::models::User>>, (StatusCode, Json<serde_json::Value>)> {
-    let users = state.admin.list_users(0, 100).await.map_err(internal_error)?;
+    let users = state
+        .admin
+        .list_users(0, 100)
+        .await
+        .map_err(internal_error)?;
     Ok(Json(users))
 }
 
@@ -523,7 +536,11 @@ async fn list_user_sessions(
     State(state): State<AppState>,
     Path(user_id): Path<uuid::Uuid>,
 ) -> Result<Json<Vec<authx_core::models::Session>>, (StatusCode, Json<serde_json::Value>)> {
-    let sessions = state.admin.list_sessions(user_id).await.map_err(internal_error)?;
+    let sessions = state
+        .admin
+        .list_sessions(user_id)
+        .await
+        .map_err(internal_error)?;
     Ok(Json(sessions))
 }
 
@@ -588,7 +605,11 @@ async fn list_org_members(
     State(state): State<AppState>,
     Path(org_id): Path<uuid::Uuid>,
 ) -> Result<Json<Vec<authx_core::models::Membership>>, (StatusCode, Json<serde_json::Value>)> {
-    let members = state.orgs.list_members(org_id).await.map_err(internal_error)?;
+    let members = state
+        .orgs
+        .list_members(org_id)
+        .await
+        .map_err(internal_error)?;
     Ok(Json(members))
 }
 
@@ -740,7 +761,9 @@ async fn totp_confirm_setup(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "ok": true, "message": "TOTP enabled" })))
+    Ok(Json(
+        serde_json::json!({ "ok": true, "message": "TOTP enabled" }),
+    ))
 }
 
 async fn totp_verify(
@@ -764,7 +787,9 @@ async fn totp_verify(
             )
         })?;
 
-    Ok(Json(serde_json::json!({ "ok": true, "message": "TOTP verified" })))
+    Ok(Json(
+        serde_json::json!({ "ok": true, "message": "TOTP verified" }),
+    ))
 }
 
 async fn totp_status(

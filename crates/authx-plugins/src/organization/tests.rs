@@ -70,7 +70,12 @@ async fn accept_invite_for_existing_member_returns_membership() {
         .await
         .unwrap();
     let details = s
-        .invite_member(org.id, "owner@example.com".into(), owner_membership.role.id, owner)
+        .invite_member(
+            org.id,
+            "owner@example.com".into(),
+            owner_membership.role.id,
+            owner,
+        )
         .await
         .unwrap();
 

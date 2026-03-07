@@ -412,12 +412,14 @@ impl CredentialRepository for PostgresStore {
     }
 
     async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()> {
-        let result = sqlx::query("DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2::authx_credential_kind")
-            .bind(user_id)
-            .bind(credential_kind_str(&kind))
-            .execute(&self.pool)
-            .await
-            .map_err(db_err)?;
+        let result = sqlx::query(
+            "DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2::authx_credential_kind",
+        )
+        .bind(user_id)
+        .bind(credential_kind_str(&kind))
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage(StorageError::NotFound));
