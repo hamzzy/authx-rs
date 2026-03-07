@@ -36,11 +36,14 @@ CREATE INDEX IF NOT EXISTS authx_sessions_expires_at_idx ON authx_sessions (expi
 
 -- ── Credentials ───────────────────────────────────────────────────────────────
 
-CREATE TYPE IF NOT EXISTS authx_credential_kind AS ENUM (
-    'password',
-    'passkey',
-    'oauth_token'
-);
+DO $$ BEGIN
+    CREATE TYPE authx_credential_kind AS ENUM (
+        'password',
+        'passkey',
+        'oauth_token'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS authx_credentials (
     id              UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),

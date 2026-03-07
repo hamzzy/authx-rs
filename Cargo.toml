@@ -3,6 +3,7 @@ members = [
     "crates/*",
     "examples/axum-app",
     "examples/actix-app",
+    "examples/fullstack-app/server",
 ]
 resolver = "2"
 

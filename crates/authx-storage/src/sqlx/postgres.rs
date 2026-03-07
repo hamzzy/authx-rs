@@ -109,6 +109,7 @@ fn map_session(r: &sqlx::postgres::PgRow) -> Session {
 }
 
 fn map_audit_log(r: &sqlx::postgres::PgRow) -> AuditLog {
+    let ip_address: String = r.get("ip_address");
     AuditLog {
         id: r.get("id"),
         user_id: r.get("user_id"),
@@ -116,7 +117,11 @@ fn map_audit_log(r: &sqlx::postgres::PgRow) -> AuditLog {
         action: r.get("action"),
         resource_type: r.get("resource_type"),
         resource_id: r.get("resource_id"),
-        ip_address: r.get("ip_address"),
+        ip_address: if ip_address.is_empty() {
+            None
+        } else {
+            Some(ip_address)
+        },
         metadata: r.get::<serde_json::Value, _>("metadata"),
         created_at: r.get("created_at"),
     }
@@ -176,7 +181,7 @@ impl UserRepository for PostgresStore {
     }
 
     async fn create(&self, data: CreateUser) -> Result<User> {
-        let meta = data.metadata.unwrap_or(serde_json::Value::Null);
+        let meta = data.metadata.unwrap_or(serde_json::json!({}));
         let row = sqlx::query(
             "INSERT INTO authx_users (id, email, email_verified, username, metadata) \
              VALUES ($1, $2, false, $3, $4) \
@@ -344,12 +349,12 @@ impl SessionRepository for PostgresStore {
 impl CredentialRepository for PostgresStore {
     async fn create(&self, data: CreateCredential) -> Result<Credential> {
         let kind_str = credential_kind_str(&data.kind);
-        let meta = data.metadata.unwrap_or(serde_json::Value::Null);
+        let meta = data.metadata.unwrap_or(serde_json::json!({}));
 
         let row = sqlx::query(
             "INSERT INTO authx_credentials (id, user_id, kind, credential_hash, metadata) \
-             VALUES ($1, $2, $3, $4, $5) \
-             RETURNING id, user_id, kind, credential_hash, metadata",
+             VALUES ($1, $2, $3::authx_credential_kind, $4, $5) \
+             RETURNING id, user_id, kind::text, credential_hash, metadata",
         )
         .bind(Uuid::new_v4())
         .bind(data.user_id)
@@ -373,7 +378,7 @@ impl CredentialRepository for PostgresStore {
     async fn find_password_hash(&self, user_id: Uuid) -> Result<Option<String>> {
         let row = sqlx::query(
             "SELECT credential_hash FROM authx_credentials \
-             WHERE user_id = $1 AND kind = 'password'",
+             WHERE user_id = $1 AND kind = 'password'::authx_credential_kind",
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
@@ -388,8 +393,8 @@ impl CredentialRepository for PostgresStore {
         kind: CredentialKind,
     ) -> Result<Option<Credential>> {
         let row = sqlx::query(
-            "SELECT id, user_id, kind, credential_hash, metadata \
-             FROM authx_credentials WHERE user_id = $1 AND kind = $2",
+            "SELECT id, user_id, kind::text, credential_hash, metadata \
+             FROM authx_credentials WHERE user_id = $1 AND kind = $2::authx_credential_kind",
         )
         .bind(user_id)
         .bind(credential_kind_str(&kind))
@@ -407,7 +412,7 @@ impl CredentialRepository for PostgresStore {
     }
 
     async fn delete_by_user_and_kind(&self, user_id: Uuid, kind: CredentialKind) -> Result<()> {
-        let result = sqlx::query("DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2")
+        let result = sqlx::query("DELETE FROM authx_credentials WHERE user_id = $1 AND kind = $2::authx_credential_kind")
             .bind(user_id)
             .bind(credential_kind_str(&kind))
             .execute(&self.pool)
@@ -451,7 +456,7 @@ fn map_membership(r: &sqlx::postgres::PgRow) -> Membership {
 #[async_trait]
 impl OrgRepository for PostgresStore {
     async fn create(&self, data: CreateOrg) -> Result<Organization> {
-        let meta = data.metadata.unwrap_or(serde_json::Value::Null);
+        let meta = data.metadata.unwrap_or(serde_json::json!({}));
         let row = sqlx::query(
             "INSERT INTO authx_orgs (id, name, slug, metadata) \
              VALUES ($1, $2, $3, $4) \
@@ -653,7 +658,8 @@ impl OrgRepository for PostgresStore {
 #[async_trait]
 impl AuditLogRepository for PostgresStore {
     async fn append(&self, entry: CreateAuditLog) -> Result<AuditLog> {
-        let meta = entry.metadata.unwrap_or(serde_json::Value::Null);
+        let meta = entry.metadata.unwrap_or(serde_json::json!({}));
+        let ip_address = entry.ip_address.unwrap_or_default();
         let row = sqlx::query(
             "INSERT INTO authx_audit_logs \
                (id, user_id, org_id, action, resource_type, resource_id, ip_address, metadata) \
@@ -666,7 +672,7 @@ impl AuditLogRepository for PostgresStore {
         .bind(&entry.action)
         .bind(&entry.resource_type)
         .bind(entry.resource_id.as_deref())
-        .bind(&entry.ip_address)
+        .bind(&ip_address)
         .bind(&meta)
         .fetch_one(&self.pool)
         .await

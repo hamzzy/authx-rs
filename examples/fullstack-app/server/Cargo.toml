@@ -1,0 +1,27 @@
+[package]
+name    = "fullstack-app"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "fullstack-app"
+path = "src/main.rs"
+
+[dependencies]
+authx-core.workspace         = true
+authx-storage                = { workspace = true, features = ["sqlx-postgres"] }
+authx-plugins.workspace      = true
+authx-axum.workspace         = true
+axum.workspace               = true
+ed25519-dalek.workspace      = true
+tower-http                   = { workspace = true, features = ["trace", "cors"] }
+tokio.workspace              = true
+tracing.workspace            = true
+tracing-subscriber.workspace = true
+serde.workspace              = true
+serde_json.workspace         = true
+chrono.workspace             = true
+pkcs8.workspace              = true
+rand.workspace               = true
+uuid.workspace               = true
+sqlx.workspace               = true

@@ -1305,6 +1305,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "fullstack-app"
+version = "0.1.1"
+dependencies = [
+ "authx-axum",
+ "authx-core",
+ "authx-plugins",
+ "authx-storage",
+ "axum",
+ "chrono",
+ "ed25519-dalek",
+ "pkcs8",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"

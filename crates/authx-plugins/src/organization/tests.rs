@@ -62,6 +62,25 @@ async fn accept_invite_twice_fails() {
 }
 
 #[tokio::test]
+async fn accept_invite_for_existing_member_returns_membership() {
+    let (s, _) = svc_and_store();
+    let owner = Uuid::new_v4();
+    let (org, owner_membership) = s
+        .create(owner, "Acme".into(), "acme-existing-member".into(), None)
+        .await
+        .unwrap();
+    let details = s
+        .invite_member(org.id, "owner@example.com".into(), owner_membership.role.id, owner)
+        .await
+        .unwrap();
+
+    let membership = s.accept_invite(&details.raw_token, owner).await.unwrap();
+    assert_eq!(membership.user_id, owner);
+    assert_eq!(membership.org_id, org.id);
+    assert_eq!(membership.id, owner_membership.id);
+}
+
+#[tokio::test]
 async fn switch_org_updates_session() {
     use authx_core::models::CreateSession;
     use authx_storage::ports::SessionRepository;

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/hamzzy/authx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/hamzzy/authx-rs/actions)
 
-A production-grade authentication and authorization framework for Rust.
+An authentication and authorization framework for Rust.
 
 **Philosophy:** Zero-cost abstractions, trait-based, `async`-native. Every feature is a plugin, nothing is hardcoded.
 
@@ -14,28 +14,38 @@ A production-grade authentication and authorization framework for Rust.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              authx-axum (HTTP Layer)                 │
-│   SessionLayer · RateLimitLayer · CSRF · Handlers   │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│             authx-plugins (Features)                 │
-│  EmailPassword · TOTP · MagicLink · PasswordReset   │
-│  Admin · (OAuth — upcoming)                         │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│              authx-core (Zero-dep engine)            │
-│  Crypto · JWT/EdDSA · RBAC · ABAC · Events          │
-│  Brute-force lockout · Key rotation                 │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│            authx-storage (Repository ports)          │
-│  MemoryStore (tests) · PostgresStore (sqlx)         │
-│  AuditLogger · Bring your own adapter               │
-└─────────────────────────────────────────────────────┘
+                    ┌───────────┐  ┌─────────────┐
+                    │ authx-cli │  │  dashboard  │
+                    └─────┬─────┘  └──────┬──────┘
+                          │               │
+          ┌───────────────▼───────────────▼──────────────┐
+          │           authx-axum  (HTTP layer)           │
+          │  SessionLayer  RateLimitLayer  CSRF  Routes  │
+          └──────────────────────┬───────────────────────┘
+                                 │
+   ┌─────────────────────────────▼─────────────────────────────┐
+   │                   authx-plugins  (features)               │
+   │                                                           │
+   │  EmailPassword   TOTP         MagicLink    PasswordReset  │
+   │  OAuth           OIDC Provider/Federation  WebAuthn       │
+   │  ApiKey          EmailOTP     Admin        Organization   │
+   └─────────────────────────────┬─────────────────────────────┘
+                                 │
+   ┌─────────────────────────────▼─────────────────────────────┐
+   │               authx-core  (zero-dep engine)               │
+   │                                                           │
+   │  Crypto (Argon2id · AES-256-GCM)    JWT / EdDSA signing   │
+   │  RBAC + ABAC policy engine          EventBus              │
+   │  Brute-force lockout                Key rotation          │
+   └─────────────────────────────┬─────────────────────────────┘
+                                 │
+   ┌─────────────────────────────▼─────────────────────────────┐
+   │              authx-storage  (repository ports)            │
+   │                                                           │
+   │  MemoryStore (dev/test)             PostgresStore (sqlx)  │
+   │  AuditLogger                        RedisTokenStore       │
+   │  Bring your own adapter                                   │
+   └───────────────────────────────────────────────────────────┘
 ```
 
 ### Design constraints
@@ -59,7 +69,10 @@ crates/
   authx-storage/    # Repository traits + MemoryStore + PostgresStore
   authx-plugins/    # Plugin trait + all auth plugins
   authx-axum/       # Tower middleware, route handlers, cookies, CSRF, rate limiting
+  authx-cli/        # CLI binary (serve, migrate, user, key, oidc)
+  authx-dashboard/  # Admin dashboard (HTMX)
 examples/
+  fullstack-app/    # End-to-end: React + Axum + PostgreSQL + SDK + TOTP MFA
   axum-app/         # Full working Axum integration demo
   actix-app/        # Direct actix-web integration demo
   react-sdk-app/    # React consumer app for the TypeScript SDK packages
@@ -311,38 +324,33 @@ store.migrate().await?; // runs bundled migrations automatically
 ```bash
 cargo test --workspace
 ```
+
 ---
 
-## Roadmap
+## Contributing
 
-### v0.1 (released)
-- [x] Email + password authentication with Argon2id
-- [x] TOTP MFA with backup codes
-- [x] Magic link authentication
-- [x] Password reset
-- [x] API key authentication
-- [x] OAuth2 authorization code flow with PKCE
-- [x] Email verification
-- [x] Organization management + RBAC
-- [x] ABAC policy engine with built-in policies
-- [x] Brute-force lockout + per-IP rate limiting
-- [x] CSRF protection
-- [x] JWT key rotation (zero-downtime, Ed25519)
-- [x] Audit logging
-- [x] PostgreSQL adapter (sqlx 0.8)
-- [x] Admin service (ban, impersonate, revoke sessions)
-- [x] Admin dashboard (HTMX)
-- [x] CLI (`authx serve`, `migrate`, `user`, `key`)
+Contributions are welcome! Please follow these steps:
 
-### v0.2 (planned)
-- [ ] OIDC Provider — act as an identity provider
-- [ ] OAuth2 Provider — act as an authorization server
-- [ ] SSO / OIDC federation — sign in via Okta, Azure AD, Google Workspace
-- [ ] Device Authorization Grant (RFC 8628)
-- [ ] Redis-backed rate limiting and token store
-- [ ] Organization invitation flow
+1. **Fork and clone** the repository.
+2. **Create a branch** from `main` for your change.
+3. **Run the test suite** before submitting:
+   ```bash
+   cargo test --workspace
+   cargo clippy --workspace -- -D warnings
+   cargo fmt --all -- --check
+   ```
+4. **Open a pull request** against `main`. CI runs the same checks above — all must pass.
 
-### v0.3+ (enterprise protocol expansion, after core stabilization)
-- [ ] WebAuthn / Passkey plugin
-- [ ] SAML 2.0 — enterprise IdP integration with signed assertions + metadata
-- [ ] SCIM 2.0 — user and group provisioning with mapping + complete audit logs
+### Guidelines
+
+- Keep PRs focused — one feature or fix per PR.
+- Add tests for new functionality. Existing plugins are good reference (`crates/authx-plugins/src/*/tests.rs`).
+- Public API changes should update the relevant docs and README examples.
+- Follow existing code style — `rustfmt` defaults, no unsafe unless strictly necessary.
+- Security-sensitive changes (crypto, session handling, token storage) require extra review. Please call this out in the PR description.
+
+### Reporting issues
+
+Open an issue on [GitHub](https://github.com/hamzzy/authx-rs/issues). For security vulnerabilities, please email the maintainers directly instead of filing a public issue.
+
+---

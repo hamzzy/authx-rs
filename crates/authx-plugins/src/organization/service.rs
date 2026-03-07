@@ -181,6 +181,19 @@ where
         }
 
         InviteRepository::accept(&self.storage, invite.id).await?;
+        if let Some(existing) = OrgRepository::get_members(&self.storage, invite.org_id)
+            .await?
+            .into_iter()
+            .find(|membership| membership.user_id == user_id)
+        {
+            tracing::info!(
+                org_id = %invite.org_id,
+                user_id = %user_id,
+                membership_id = %existing.id,
+                "invite accepted for existing org member"
+            );
+            return Ok(existing);
+        }
         let membership =
             OrgRepository::add_member(&self.storage, invite.org_id, user_id, invite.role_id)
                 .await?;
