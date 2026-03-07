@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/hamzzy/authx-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/hamzzy/authx-rs/actions)
 
-A production-grade authentication and authorization framework for Rust.
+An authentication and authorization framework for Rust.
 
 **Philosophy:** Zero-cost abstractions, trait-based, `async`-native. Every feature is a plugin, nothing is hardcoded.
 
