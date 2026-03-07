@@ -10,9 +10,9 @@ description: Get an authx-rs Axum server running in under 5 minutes.
 
    ```toml title="Cargo.toml"
    [dependencies]
-   authx-core    = "0.1.1"
-   authx-storage = "0.1.1"
-   authx-axum    = "0.1.1"
+   authx-core    = "0.1.2"
+   authx-storage = "0.1.2"
+   authx-axum    = "0.1.2"
 
    axum               = "0.7"
    serde_json         = "1"

@@ -420,7 +420,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "authx-axum"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "authx-core",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "authx-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "authx-axum",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "authx-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -489,7 +489,7 @@ dependencies = [
 
 [[package]]
 name = "authx-dashboard"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "authx-axum",
  "authx-core",
@@ -508,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "authx-plugins"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "argon2",
  "async-trait",
@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "authx-storage"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-trait",
  "authx-core",
@@ -594,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "axum-app"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "authx-axum",
  "authx-core",
@@ -1306,7 +1306,7 @@ dependencies = [
 
 [[package]]
 name = "fullstack-app"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "authx-axum",
  "authx-core",
