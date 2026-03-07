@@ -6,7 +6,7 @@
     "generate:ts-api": "node ../scripts/generate-ts-api-docs.mjs",
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "ASTRO_TELEMETRY_DISABLED=1 npm run generate:ts-api && ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build",
     "preview": "pnpm run build && wrangler dev",
     "astro": "astro",
     "deploy": "pnpm run build && wrangler deploy",
