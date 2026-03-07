@@ -84,9 +84,14 @@ where
 
 async fn discovery_handler<S>(
     State(state): State<OidcProviderState<S>>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, AuthErrorResponse> {
     let doc = oidc_discovery_document(&state.issuer, &state.base_path);
-    Json(serde_json::to_value(doc).unwrap())
+    let doc = serde_json::to_value(doc).map_err(|error| {
+        AuthErrorResponse::from(authx_core::error::AuthError::Internal(format!(
+            "failed to serialize OIDC discovery document: {error}"
+        )))
+    })?;
+    Ok(Json(doc))
 }
 
 #[instrument(skip(state, query))]
@@ -303,7 +308,12 @@ async fn jwks_handler<S>(
 ) -> Result<Json<serde_json::Value>, AuthErrorResponse> {
     let jwks = jwks_from_public_pem(&state.public_pem, &state.jwks_kid)
         .map_err(AuthErrorResponse::from)?;
-    Ok(Json(serde_json::to_value(jwks).unwrap()))
+    let jwks = serde_json::to_value(jwks).map_err(|error| {
+        AuthErrorResponse::from(authx_core::error::AuthError::Internal(format!(
+            "failed to serialize JWKS response: {error}"
+        )))
+    })?;
+    Ok(Json(jwks))
 }
 
 // ── Token Revocation (RFC 7009) & Introspection (RFC 7662) ───────────────────
