@@ -1,7 +1,7 @@
 //! JWKS (JSON Web Key Set) for OIDC provider.
 
 use authx_core::error::{AuthError, Result};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use pkcs8::DecodePublicKey;
 use serde::{Deserialize, Serialize};
 

@@ -54,7 +54,7 @@ fn svc() -> OAuthService<MemoryStore> {
 
 #[test]
 fn pkce_challenge_is_s256_of_verifier() {
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use sha2::{Digest, Sha256};
 
     let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";

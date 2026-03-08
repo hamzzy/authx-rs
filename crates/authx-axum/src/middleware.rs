@@ -86,10 +86,11 @@ where
             let token_hash = extract_token(&req).map(|t| sha256_hex(t.as_bytes()));
 
             if let Some(hash) = token_hash
-                && let Some(identity) = resolve_identity(&*storage, &hash).await {
-                    req.extensions_mut().insert(identity);
-                    tracing::debug!("identity resolved");
-                }
+                && let Some(identity) = resolve_identity(&*storage, &hash).await
+            {
+                req.extensions_mut().insert(identity);
+                tracing::debug!("identity resolved");
+            }
 
             inner.call(req).await
         })

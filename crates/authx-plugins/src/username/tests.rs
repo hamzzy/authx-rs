@@ -24,10 +24,11 @@ async fn duplicate_username_rejected() {
     s.sign_up("bob", "bob@example.com", "password1")
         .await
         .unwrap();
-    assert!(s
-        .sign_up("bob", "bob2@example.com", "password2")
-        .await
-        .is_err());
+    assert!(
+        s.sign_up("bob", "bob2@example.com", "password2")
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

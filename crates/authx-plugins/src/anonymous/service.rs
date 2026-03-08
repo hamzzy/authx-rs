@@ -1,4 +1,4 @@
-use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::password_hash::{SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHasher};
 use chrono::Utc;
 use tracing::instrument;

@@ -5,7 +5,7 @@
 //! GET+DEL script.
 #[cfg(feature = "redis-tokens")]
 mod inner {
-    use redis::{aio::MultiplexedConnection, AsyncCommands, Client, Script};
+    use redis::{AsyncCommands, Client, Script, aio::MultiplexedConnection};
     use uuid::Uuid;
 
     use crate::one_time_token::TokenKind;

@@ -55,10 +55,11 @@ async fn accept_invite_twice_fails() {
     s.accept_invite(&details.raw_token, Uuid::new_v4())
         .await
         .unwrap();
-    assert!(s
-        .accept_invite(&details.raw_token, Uuid::new_v4())
-        .await
-        .is_err());
+    assert!(
+        s.accept_invite(&details.raw_token, Uuid::new_v4())
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -127,8 +128,9 @@ async fn duplicate_slug_rejected() {
     s.create(Uuid::new_v4(), "Acme".into(), "unique".into(), None)
         .await
         .unwrap();
-    assert!(s
-        .create(Uuid::new_v4(), "Acme2".into(), "unique".into(), None)
-        .await
-        .is_err());
+    assert!(
+        s.create(Uuid::new_v4(), "Acme2".into(), "unique".into(), None)
+            .await
+            .is_err()
+    );
 }

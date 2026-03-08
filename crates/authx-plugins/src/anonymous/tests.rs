@@ -45,8 +45,9 @@ async fn upgrade_non_guest_forbidden() {
     .await
     .unwrap();
     let s = svc(store);
-    assert!(s
-        .upgrade(real.id, "other@example.com", "newpassword")
-        .await
-        .is_err());
+    assert!(
+        s.upgrade(real.id, "other@example.com", "newpassword")
+            .await
+            .is_err()
+    );
 }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
 use rand::Rng;
 use serde::Deserialize;
@@ -370,8 +370,7 @@ where
                 "assign_role" => {
                     // Assign a specific role within the provider's org
                     if let Some(org_id) = provider.org_id
-                        && let Ok(roles) =
-                            OrgRepository::find_roles(&self.storage, org_id).await
+                        && let Ok(roles) = OrgRepository::find_roles(&self.storage, org_id).await
                         && let Some(role) = roles.iter().find(|r| r.name == rule.target)
                     {
                         let _ = OrgRepository::update_member_role(

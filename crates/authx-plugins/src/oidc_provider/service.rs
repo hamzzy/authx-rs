@@ -1,6 +1,6 @@
 //! OIDC Provider service — authx acts as Identity Provider and OAuth2 authorization server.
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{Duration, Utc};
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -8,10 +8,10 @@ use tracing::instrument;
 use uuid::Uuid;
 
 use authx_core::{
+    KeyRotationStore,
     crypto::sha256_hex,
     error::{AuthError, Result},
     models::{CreateAuthorizationCode, CreateDeviceCode, CreateOidcToken, OidcTokenType},
-    KeyRotationStore,
 };
 use authx_storage::ports::{
     AuthorizationCodeRepository, DeviceCodeRepository, OidcClientRepository, OidcTokenRepository,
@@ -509,9 +509,7 @@ where
         }
 
         // Check as access token (JWT)
-        if try_access
-            && let Ok(claims) = self.config.key_store.verify(token)
-        {
+        if try_access && let Ok(claims) = self.config.key_store.verify(token) {
             let extra = claims.extra;
             return Ok(IntrospectionResponse {
                 active: true,

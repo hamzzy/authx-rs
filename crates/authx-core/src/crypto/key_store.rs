@@ -181,9 +181,10 @@ impl KeyRotationStore {
         let ordered: Vec<_> = inner.keys.iter().rev().collect();
         for kv in &ordered {
             if let Some(kid) = preferred_kid
-                && kv.kid != kid {
-                    continue; // skip non-matching first pass
-                }
+                && kv.kid != kid
+            {
+                continue; // skip non-matching first pass
+            }
             if let Ok(data) = decode::<Claims>(token, &kv.decoding, &validation) {
                 tracing::debug!(kid = %kv.kid, sub = %data.claims.sub, "jwt verified");
                 return Ok(data.claims);
