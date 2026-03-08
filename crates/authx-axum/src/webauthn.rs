@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::IntoResponse, routing::post, Json, Router};
+use axum::{Json, Router, extract::State, response::IntoResponse, routing::post};
 use serde::Deserialize;
 use uuid::Uuid;
 use webauthn_rs::prelude::{PublicKeyCredential, RegisterPublicKeyCredential};

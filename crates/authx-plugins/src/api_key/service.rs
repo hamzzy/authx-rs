@@ -65,7 +65,7 @@ where
             .await?
             .ok_or(AuthError::UserNotFound)?;
 
-        let raw: [u8; 32] = rand::thread_rng().gen();
+        let raw: [u8; 32] = rand::thread_rng().r#gen();
         let raw_key = hex::encode(raw);
         let key_hash = sha256_hex(raw_key.as_bytes());
         let prefix = raw_key[..8].to_owned();
@@ -115,11 +115,11 @@ where
             .await?
             .ok_or(AuthError::InvalidToken)?;
 
-        if let Some(exp) = key.expires_at {
-            if exp < Utc::now() {
-                tracing::warn!(key_id = %key.id, "api key expired");
-                return Err(AuthError::InvalidToken);
-            }
+        if let Some(exp) = key.expires_at
+            && exp < Utc::now()
+        {
+            tracing::warn!(key_id = %key.id, "api key expired");
+            return Err(AuthError::InvalidToken);
         }
 
         let now = Utc::now();

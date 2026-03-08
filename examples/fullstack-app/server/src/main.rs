@@ -24,12 +24,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
+    Router,
     extract::{Path, State},
-    http::{header, Method, StatusCode},
+    http::{Method, StatusCode, header},
     middleware,
     response::{IntoResponse, Json},
     routing::{delete, get, post},
-    Router,
 };
 use ed25519_dalek::SigningKey;
 use pkcs8::LineEnding;
@@ -37,23 +37,23 @@ use rand::rngs::OsRng;
 use serde::Deserialize;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use authx_axum::{
-    csrf_middleware, oidc_provider_router, set_session_cookie, webauthn_router, AuthxState,
-    CsrfConfig, OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth, SessionLayer,
+    AuthxState, CsrfConfig, OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth,
+    SessionLayer, csrf_middleware, oidc_provider_router, set_session_cookie, webauthn_router,
 };
-use authx_core::models::CreateOidcClient;
 use authx_core::KeyRotationStore;
+use authx_core::models::CreateOidcClient;
 use authx_core::{brute_force::LockoutConfig, events::EventBus};
 use authx_plugins::oidc_provider::{
-    oidc_discovery_document, OidcProviderConfig, OidcProviderService,
+    OidcProviderConfig, OidcProviderService, oidc_discovery_document,
 };
 use authx_plugins::{
     AdminService, ApiKeyService, OrgService, TotpService, TotpSetup, WebAuthnService,
 };
-use authx_storage::ports::{OidcClientRepository, OrgRepository};
 use authx_storage::PostgresStore;
+use authx_storage::ports::{OidcClientRepository, OrgRepository};
 
 const BACKEND_URL: &str = "http://localhost:4000";
 const FRONTEND_URL: &str = "http://localhost:5173";

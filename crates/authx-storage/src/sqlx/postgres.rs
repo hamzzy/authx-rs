@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 use authx_core::{
@@ -471,14 +471,13 @@ impl OrgRepository for PostgresStore {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {
-            if let sqlx::Error::Database(ref dbe) = e {
-                if dbe.constraint() == Some("authx_orgs_slug_key") {
+            if let sqlx::Error::Database(ref dbe) = e
+                && dbe.constraint() == Some("authx_orgs_slug_key") {
                     return AuthError::Storage(StorageError::Conflict(format!(
                         "slug '{}' already taken",
                         data.slug
                     )));
                 }
-            }
             db_err(e)
         })?;
 
@@ -1175,11 +1174,10 @@ impl OidcTokenRepository for PostgresStore {
 
         if let Some(ref r) = row {
             let tok = map_oidc_token(r);
-            if let Some(exp) = tok.expires_at {
-                if exp < Utc::now() {
+            if let Some(exp) = tok.expires_at
+                && exp < Utc::now() {
                     return Ok(None);
                 }
-            }
         }
         Ok(row.as_ref().map(map_oidc_token))
     }

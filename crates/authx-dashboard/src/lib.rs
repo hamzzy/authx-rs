@@ -25,11 +25,11 @@ use authx_storage::ports::{
     OidcFederationProviderRepository, OrgRepository, SessionRepository, UserRepository,
 };
 use axum::{
+    Router,
     extract::State,
     http::{Request, StatusCode},
     middleware::{self, Next},
     response::Response,
-    Router,
 };
 use subtle::ConstantTimeEq;
 

@@ -73,7 +73,7 @@ mod inner {
             kind: TokenKind,
             ttl_seconds: u64,
         ) -> Result<String> {
-            let raw: [u8; 32] = rand::Rng::gen(&mut rand::thread_rng());
+            let raw: [u8; 32] = rand::Rng::r#gen(&mut rand::thread_rng());
             let token = hex::encode(raw);
             let hash = sha256_hex(token.as_bytes());
 

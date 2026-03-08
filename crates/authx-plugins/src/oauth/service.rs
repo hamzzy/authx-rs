@@ -89,7 +89,7 @@ where
         self.provider(provider_name)?;
 
         // Generate PKCE code_verifier (32 random bytes, base64url-encoded).
-        let verifier_bytes: [u8; 32] = rand::thread_rng().gen();
+        let verifier_bytes: [u8; 32] = rand::thread_rng().r#gen();
         let code_verifier = URL_SAFE_NO_PAD.encode(verifier_bytes);
 
         // code_challenge = BASE64URL(SHA256(verifier))
@@ -99,7 +99,7 @@ where
         let code_challenge = URL_SAFE_NO_PAD.encode(digest);
 
         // Random state token.
-        let state_bytes: [u8; 16] = rand::thread_rng().gen();
+        let state_bytes: [u8; 16] = rand::thread_rng().r#gen();
         let state = hex::encode(state_bytes);
 
         let authorization_url = self
@@ -192,7 +192,7 @@ where
         });
 
         // Create session.
-        let raw: [u8; 32] = rand::thread_rng().gen();
+        let raw: [u8; 32] = rand::thread_rng().r#gen();
         let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
 

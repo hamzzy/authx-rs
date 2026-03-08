@@ -126,13 +126,13 @@ where
             .await
             .map_err(|e| AuthError::Internal(format!("oidc discovery parse failed: {e}")))?;
 
-        let verifier_bytes: [u8; 32] = rand::thread_rng().gen();
+        let verifier_bytes: [u8; 32] = rand::thread_rng().r#gen();
         let code_verifier = URL_SAFE_NO_PAD.encode(verifier_bytes);
         let mut hasher = Sha256::new();
         hasher.update(code_verifier.as_bytes());
         let code_challenge = URL_SAFE_NO_PAD.encode(hasher.finalize());
 
-        let state_bytes: [u8; 16] = rand::thread_rng().gen();
+        let state_bytes: [u8; 16] = rand::thread_rng().r#gen();
         let state = hex::encode(state_bytes);
 
         {
@@ -277,7 +277,7 @@ where
         let user = match UserRepository::find_by_email(&self.storage, &email).await? {
             Some(u) => u,
             None => {
-                let u = UserRepository::create(
+                UserRepository::create(
                     &self.storage,
                     CreateUser {
                         email: email.clone(),
@@ -285,8 +285,7 @@ where
                         metadata: None,
                     },
                 )
-                .await?;
-                u
+                .await?
             }
         };
 
@@ -311,7 +310,7 @@ where
             .apply_claim_mapping(user.id, &provider, &userinfo.extra)
             .await;
 
-        let raw: [u8; 32] = rand::thread_rng().gen();
+        let raw: [u8; 32] = rand::thread_rng().r#gen();
         let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
 
@@ -370,18 +369,18 @@ where
                 }
                 "assign_role" => {
                     // Assign a specific role within the provider's org
-                    if let Some(org_id) = provider.org_id {
-                        if let Ok(roles) = OrgRepository::find_roles(&self.storage, org_id).await {
-                            if let Some(role) = roles.iter().find(|r| r.name == rule.target) {
-                                let _ = OrgRepository::update_member_role(
-                                    &self.storage,
-                                    org_id,
-                                    user_id,
-                                    role.id,
-                                )
-                                .await;
-                            }
-                        }
+                    if let Some(org_id) = provider.org_id
+                        && let Ok(roles) =
+                            OrgRepository::find_roles(&self.storage, org_id).await
+                        && let Some(role) = roles.iter().find(|r| r.name == rule.target)
+                    {
+                        let _ = OrgRepository::update_member_role(
+                            &self.storage,
+                            org_id,
+                            user_id,
+                            role.id,
+                        )
+                        .await;
                     }
                 }
                 other => {

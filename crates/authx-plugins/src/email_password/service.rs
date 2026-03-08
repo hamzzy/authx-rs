@@ -111,11 +111,11 @@ where
     #[instrument(skip(self, req), fields(email = %req.email))]
     pub async fn sign_in(&self, req: SignInRequest) -> Result<AuthResponse> {
         // Lockout check before touching storage — avoids timing leak.
-        if let Some(tracker) = &self.lockout {
-            if tracker.is_locked(&req.email) {
-                tracing::warn!(email = %req.email, "sign-in blocked: account locked");
-                return Err(AuthError::AccountLocked);
-            }
+        if let Some(tracker) = &self.lockout
+            && tracker.is_locked(&req.email)
+        {
+            tracing::warn!(email = %req.email, "sign-in blocked: account locked");
+            return Err(AuthError::AccountLocked);
         }
 
         let user = UserRepository::find_by_email(&self.storage, &req.email)
@@ -189,6 +189,6 @@ where
 }
 
 fn generate_token() -> String {
-    let bytes: [u8; 32] = rand::thread_rng().gen();
+    let bytes: [u8; 32] = rand::thread_rng().r#gen();
     hex::encode(bytes)
 }

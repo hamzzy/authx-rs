@@ -179,7 +179,7 @@ where
         }
 
         // Generate one-time code
-        let raw_code: [u8; 32] = rand::thread_rng().gen();
+        let raw_code: [u8; 32] = rand::thread_rng().r#gen();
         let code = URL_SAFE_NO_PAD.encode(raw_code);
         let code_hash = sha256_hex(code.as_bytes());
 
@@ -359,7 +359,7 @@ where
         let refresh_token = if scope.split_whitespace().any(|s| s == "offline_access")
             || !scope.is_empty()
         {
-            let raw: [u8; 32] = rand::thread_rng().gen();
+            let raw: [u8; 32] = rand::thread_rng().r#gen();
             let token = hex::encode(raw);
             let token_hash = sha256_hex(token.as_bytes());
 
@@ -447,15 +447,15 @@ where
         if try_access {
             // Access tokens are JWTs — we can't revoke them server-side, but we
             // can revoke all refresh tokens for the user+client to limit blast radius.
-            if let Ok(claims) = self.config.key_store.verify(token) {
-                if let Ok(user_id) = Uuid::parse_str(&claims.sub) {
-                    let _ = OidcTokenRepository::revoke_all_for_user_client(
-                        &self.storage,
-                        user_id,
-                        client_id,
-                    )
-                    .await;
-                }
+            if let Ok(claims) = self.config.key_store.verify(token)
+                && let Ok(user_id) = Uuid::parse_str(&claims.sub)
+            {
+                let _ = OidcTokenRepository::revoke_all_for_user_client(
+                    &self.storage,
+                    user_id,
+                    client_id,
+                )
+                .await;
             }
         }
 
@@ -485,48 +485,48 @@ where
             let token_hash = sha256_hex(token.as_bytes());
             if let Ok(Some(oidc_token)) =
                 OidcTokenRepository::find_by_token_hash(&self.storage, &token_hash).await
+                && oidc_token.client_id == client_id
+                && !oidc_token.revoked
             {
-                if oidc_token.client_id == client_id && !oidc_token.revoked {
-                    let expired = oidc_token
-                        .expires_at
-                        .map(|exp| exp < Utc::now())
-                        .unwrap_or(false);
-                    if !expired {
-                        return Ok(IntrospectionResponse {
-                            active: true,
-                            scope: Some(oidc_token.scope),
-                            client_id: Some(oidc_token.client_id),
-                            username: None,
-                            token_type: Some("refresh_token".into()),
-                            exp: oidc_token.expires_at.map(|t| t.timestamp()),
-                            iat: Some(oidc_token.created_at.timestamp()),
-                            sub: Some(oidc_token.user_id.to_string()),
-                            iss: Some(self.config.issuer.clone()),
-                        });
-                    }
+                let expired = oidc_token
+                    .expires_at
+                    .map(|exp| exp < Utc::now())
+                    .unwrap_or(false);
+                if !expired {
+                    return Ok(IntrospectionResponse {
+                        active: true,
+                        scope: Some(oidc_token.scope),
+                        client_id: Some(oidc_token.client_id),
+                        username: None,
+                        token_type: Some("refresh_token".into()),
+                        exp: oidc_token.expires_at.map(|t| t.timestamp()),
+                        iat: Some(oidc_token.created_at.timestamp()),
+                        sub: Some(oidc_token.user_id.to_string()),
+                        iss: Some(self.config.issuer.clone()),
+                    });
                 }
             }
         }
 
         // Check as access token (JWT)
-        if try_access {
-            if let Ok(claims) = self.config.key_store.verify(token) {
-                let extra = claims.extra;
-                return Ok(IntrospectionResponse {
-                    active: true,
-                    scope: extra
-                        .get("scope")
-                        .and_then(|v| v.as_str())
-                        .map(String::from),
-                    client_id: extra.get("aud").and_then(|v| v.as_str()).map(String::from),
-                    username: None,
-                    token_type: Some("access_token".into()),
-                    exp: Some(claims.exp),
-                    iat: Some(claims.iat),
-                    sub: Some(claims.sub),
-                    iss: extra.get("iss").and_then(|v| v.as_str()).map(String::from),
-                });
-            }
+        if try_access
+            && let Ok(claims) = self.config.key_store.verify(token)
+        {
+            let extra = claims.extra;
+            return Ok(IntrospectionResponse {
+                active: true,
+                scope: extra
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                client_id: extra.get("aud").and_then(|v| v.as_str()).map(String::from),
+                username: None,
+                token_type: Some("access_token".into()),
+                exp: Some(claims.exp),
+                iat: Some(claims.iat),
+                sub: Some(claims.sub),
+                iss: extra.get("iss").and_then(|v| v.as_str()).map(String::from),
+            });
         }
 
         Ok(IntrospectionResponse::inactive())
@@ -582,7 +582,7 @@ where
         }
 
         // Generate high-entropy device_code (32 bytes, base64url)
-        let raw_device_code: [u8; 32] = rand::thread_rng().gen();
+        let raw_device_code: [u8; 32] = rand::thread_rng().r#gen();
         let device_code = URL_SAFE_NO_PAD.encode(raw_device_code);
         let device_code_hash = sha256_hex(device_code.as_bytes());
 

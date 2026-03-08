@@ -124,16 +124,15 @@ impl UserRepository for MemoryStore {
         if users.values().any(|u| u.email == data.email) {
             return Err(AuthError::EmailTaken);
         }
-        if let Some(ref uname) = data.username {
-            if users
+        if let Some(ref uname) = data.username
+            && users
                 .values()
                 .any(|u| u.username.as_deref() == Some(uname.as_str()))
-            {
-                return Err(AuthError::Storage(StorageError::Conflict(format!(
-                    "username '{}' already taken",
-                    uname
-                ))));
-            }
+        {
+            return Err(AuthError::Storage(StorageError::Conflict(format!(
+                "username '{}' already taken",
+                uname
+            ))));
         }
         let user = User {
             id: Uuid::new_v4(),

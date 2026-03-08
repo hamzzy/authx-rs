@@ -85,7 +85,7 @@ where
             .ok_or(AuthError::UserNotFound)?;
 
         // Generate session token.
-        let raw_session_token: [u8; 32] = rand::thread_rng().gen();
+        let raw_session_token: [u8; 32] = rand::thread_rng().r#gen();
         let raw_session_str = hex::encode(raw_session_token);
         let token_hash = sha256_hex(raw_session_str.as_bytes());
 

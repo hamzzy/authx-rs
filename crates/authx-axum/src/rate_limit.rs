@@ -149,8 +149,8 @@ where
         let mut inner = self.inner.clone();
 
         Box::pin(async move {
-            if let Some(ip) = extract_ip(&req) {
-                if !store.check(ip, &config) {
+            if let Some(ip) = extract_ip(&req)
+                && !store.check(ip, &config) {
                     tracing::warn!(ip = %ip, "rate limit exceeded");
                     let body = Json(json!({
                         "error":   "rate_limit_exceeded",
@@ -158,7 +158,6 @@ where
                     }));
                     return Ok((StatusCode::TOO_MANY_REQUESTS, body).into_response());
                 }
-            }
 
             inner.call(req).await
         })

@@ -46,7 +46,7 @@ impl OneTimeTokenStore {
     }
 
     pub fn issue(&self, user_id: uuid::Uuid, kind: TokenKind) -> String {
-        let raw: [u8; 32] = rand::thread_rng().gen();
+        let raw: [u8; 32] = rand::thread_rng().r#gen();
         let token = hex::encode(raw);
         let hash = sha256_hex(token.as_bytes());
 

@@ -2,13 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Result;
-use axum::{response::Json, routing::get, Router};
+use axum::{Router, response::Json, routing::get};
 use clap::Args;
 use tower_http::trace::TraceLayer;
 
 use authx_axum::{
-    csrf_middleware, webauthn_router, AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer,
-    SessionLayer,
+    AuthxState, CsrfConfig, RateLimitConfig, RateLimitLayer, SessionLayer, csrf_middleware,
+    webauthn_router,
 };
 use authx_core::brute_force::LockoutConfig;
 use authx_core::config::AuthxConfig;

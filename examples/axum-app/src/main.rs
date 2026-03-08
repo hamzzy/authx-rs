@@ -43,29 +43,29 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
+    Router,
     extract::{Query, State},
     http::StatusCode,
     middleware,
     response::{Html, IntoResponse, Json, Redirect},
     routing::get,
-    Router,
 };
 use serde::Deserialize;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use authx_axum::{
-    csrf_middleware, oidc_federation_router, oidc_provider_router, AuthxState, CsrfConfig,
-    OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth, SessionLayer,
+    AuthxState, CsrfConfig, OidcProviderState, RateLimitConfig, RateLimitLayer, RequireAuth,
+    SessionLayer, csrf_middleware, oidc_federation_router, oidc_provider_router,
 };
+use authx_core::KeyRotationStore;
 use authx_core::brute_force::LockoutConfig;
 use authx_core::crypto::{encrypt, sha256_hex};
 use authx_core::models::{CreateOidcClient, CreateOidcFederationProvider};
-use authx_core::KeyRotationStore;
 use authx_plugins::oidc_provider::OidcProviderConfig;
 use authx_plugins::{oidc_federation::OidcFederationService, oidc_provider::OidcProviderService};
-use authx_storage::ports::{OidcClientRepository, OidcFederationProviderRepository};
 use authx_storage::MemoryStore;
+use authx_storage::ports::{OidcClientRepository, OidcFederationProviderRepository};
 
 // Ed25519 test keys — NEVER use in production; generate your own.
 const PRIV_PEM: &[u8] = b"-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIJ+DYDHbiFQiDpMqQR5JN9QOCiIxj7T/XmVbz3Cg+xvL\n-----END PRIVATE KEY-----\n";

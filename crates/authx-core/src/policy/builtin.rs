@@ -116,8 +116,8 @@ impl Policy for TimeWindowPolicy {
         let now = Utc::now();
         let hour = now.hour();
 
-        if let Some(days) = &self.weekdays {
-            if !days.contains(&now.weekday()) {
+        if let Some(days) = &self.weekdays
+            && !days.contains(&now.weekday()) {
                 tracing::warn!(
                     user_id = %ctx.identity.user.id,
                     action  = ctx.action,
@@ -126,7 +126,6 @@ impl Policy for TimeWindowPolicy {
                 );
                 return PolicyDecision::Deny;
             }
-        }
 
         if hour >= self.start_hour && hour < self.end_hour {
             PolicyDecision::Abstain
@@ -235,11 +234,10 @@ impl Policy for RequireEmailVerifiedPolicy {
     }
 
     async fn evaluate(&self, ctx: &AuthzContext<'_>) -> PolicyDecision {
-        if let Some(prefix) = &self.action_prefix {
-            if !ctx.action.starts_with(prefix.as_str()) {
+        if let Some(prefix) = &self.action_prefix
+            && !ctx.action.starts_with(prefix.as_str()) {
                 return PolicyDecision::Abstain;
             }
-        }
 
         if ctx.identity.user.email_verified {
             PolicyDecision::Abstain

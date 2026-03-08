@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use tracing::instrument;
 use uuid::Uuid;
 
@@ -180,11 +180,10 @@ impl KeyRotationStore {
         // Try keys newest-first, preferring the kid match.
         let ordered: Vec<_> = inner.keys.iter().rev().collect();
         for kv in &ordered {
-            if let Some(kid) = preferred_kid {
-                if kv.kid != kid {
+            if let Some(kid) = preferred_kid
+                && kv.kid != kid {
                     continue; // skip non-matching first pass
                 }
-            }
             if let Ok(data) = decode::<Claims>(token, &kv.decoding, &validation) {
                 tracing::debug!(kid = %kv.kid, sub = %data.claims.sub, "jwt verified");
                 return Ok(data.claims);
@@ -241,9 +240,11 @@ mod tests {
     #[test]
     fn empty_store_sign_fails() {
         let store = KeyRotationStore::new(2);
-        assert!(store
-            .sign(Uuid::new_v4(), 3600, serde_json::Value::Null)
-            .is_err());
+        assert!(
+            store
+                .sign(Uuid::new_v4(), 3600, serde_json::Value::Null)
+                .is_err()
+        );
     }
 
     #[test]

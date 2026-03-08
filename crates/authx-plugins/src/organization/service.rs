@@ -141,7 +141,7 @@ where
         role_id: Uuid,
         _actor_id: Uuid,
     ) -> Result<InviteDetails> {
-        let raw: [u8; 32] = rand::Rng::gen(&mut rand::thread_rng());
+        let raw: [u8; 32] = rand::Rng::r#gen(&mut rand::thread_rng());
         let raw_str = hex::encode(raw);
         let token_hash = sha256_hex(raw_str.as_bytes());
 

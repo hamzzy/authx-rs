@@ -223,7 +223,7 @@ where
         target_id: Uuid,
         admin_ip: &str,
     ) -> Result<(Session, String)> {
-        let raw: [u8; 32] = rand::thread_rng().gen();
+        let raw: [u8; 32] = rand::thread_rng().r#gen();
         let raw_token = hex::encode(raw);
         let token_hash = sha256_hex(raw_token.as_bytes());
 

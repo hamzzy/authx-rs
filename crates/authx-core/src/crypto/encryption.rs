@@ -1,6 +1,6 @@
 use aes_gcm::{
-    aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
+    aead::{Aead, KeyInit, OsRng, rand_core::RngCore},
 };
 use tracing::instrument;
 

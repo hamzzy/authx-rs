@@ -3,15 +3,15 @@
 use std::sync::Arc;
 
 use axum::{
+    Form, Router,
     extract::{Path, Query, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Json},
     routing::{get, post},
-    Form, Router,
 };
 use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
     TypedHeader,
+    headers::{Authorization, authorization::Bearer},
 };
 use serde::Deserialize;
 use tracing::instrument;
@@ -19,8 +19,8 @@ use tracing::instrument;
 use authx_plugins::{
     oidc_federation::OidcFederationService,
     oidc_provider::{
-        jwks_from_public_pem, oidc_discovery_document, CreateAuthorizationCodeRequest,
-        DeviceAuthorizationResponse, DeviceCodeError, OidcProviderConfig, OidcProviderService,
+        CreateAuthorizationCodeRequest, DeviceAuthorizationResponse, DeviceCodeError,
+        OidcProviderConfig, OidcProviderService, jwks_from_public_pem, oidc_discovery_document,
     },
 };
 
@@ -178,7 +178,7 @@ where
                 return AuthErrorResponse::from(authx_core::error::AuthError::Internal(
                     "missing code".into(),
                 ))
-                .into_response()
+                .into_response();
             }
         };
         let redirect_uri = match form.redirect_uri.as_deref() {
@@ -187,7 +187,7 @@ where
                 return AuthErrorResponse::from(authx_core::error::AuthError::Internal(
                     "missing redirect_uri".into(),
                 ))
-                .into_response()
+                .into_response();
             }
         };
         match state
@@ -211,7 +211,7 @@ where
                 return AuthErrorResponse::from(authx_core::error::AuthError::Internal(
                     "missing refresh_token".into(),
                 ))
-                .into_response()
+                .into_response();
             }
         };
         match state
@@ -238,7 +238,7 @@ where
                         "error_description": "missing device_code"
                     })),
                 )
-                    .into_response()
+                    .into_response();
             }
         };
         match state.service.poll_device_code(dc, &form.client_id).await {

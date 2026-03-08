@@ -94,10 +94,12 @@ async fn delete_user_removes_record() {
         .await
         .unwrap();
     UserRepository::delete(&s, user.id).await.unwrap();
-    assert!(UserRepository::find_by_id(&s, user.id)
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        UserRepository::find_by_id(&s, user.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -150,10 +152,12 @@ async fn invalidate_removes_session() {
         .unwrap();
 
     SessionRepository::invalidate(&s, session.id).await.unwrap();
-    assert!(SessionRepository::find_by_token_hash(&s, "tokenhash")
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        SessionRepository::find_by_token_hash(&s, "tokenhash")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]

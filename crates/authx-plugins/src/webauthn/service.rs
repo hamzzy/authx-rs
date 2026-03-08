@@ -381,7 +381,7 @@ fn request_challenge_to_json(challenge: RequestChallengeResponse) -> Result<serd
 }
 
 fn generate_token() -> String {
-    let bytes: [u8; 32] = rand::thread_rng().gen();
+    let bytes: [u8; 32] = rand::thread_rng().r#gen();
     hex::encode(bytes)
 }
 

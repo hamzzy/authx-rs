@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
+    Router,
     extract::{Path, State},
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Json},
     routing::{delete, get, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use tracing::instrument;

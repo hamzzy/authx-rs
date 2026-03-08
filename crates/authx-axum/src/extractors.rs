@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::{
     extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
+    http::{StatusCode, request::Parts},
     response::{IntoResponse, Json},
 };
 use serde_json::json;
